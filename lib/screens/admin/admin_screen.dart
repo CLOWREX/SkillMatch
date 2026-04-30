@@ -205,6 +205,18 @@ class _AdminScreenState extends State<AdminScreen> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          const SizedBox(height: 10),
+            _actionTile(
+              icon: Icons.delete,
+              iconColor: Colors.red,
+              bgColor: Colors.red.shade100,
+              title: 'Hapus User',
+              subtitle: 'Data user akan dihapus permanen',
+              onTap: () {
+                Navigator.pop(context);
+                _showDeleteConfirm(uid, u['nama']);
+              },
+            ),
 
           // 🔥 SUSPEND OPTIONS
           if (!isSuspend) ...[
@@ -364,6 +376,56 @@ class _AdminScreenState extends State<AdminScreen> {
       ),
     );
   }
+
+  Future<void> _hapusUser(String uid, String nama) async {
+  try {
+    // 🔥 hapus data user
+    await FirebaseFirestore.instance.collection('users').doc(uid).delete();
+
+    // 🔥 hapus punishment kalau ada
+    await FirebaseFirestore.instance.collection('punishments').doc(uid).delete();
+
+    // 🔥 optional: hapus chat (kalau kamu punya collection chat)
+    // await FirebaseFirestore.instance.collection('chats').doc(uid).delete();
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('$nama berhasil dihapus'),
+        backgroundColor: Colors.red,
+      ),
+    );
+  } catch (e) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Gagal hapus user: $e'),
+        backgroundColor: Colors.grey,
+      ),
+    );
+  }
+}
+
+void _showDeleteConfirm(String uid, String nama) {
+  showDialog(
+    context: context,
+    builder: (_) => AlertDialog(
+      title: const Text('Hapus User'),
+      content: Text('Yakin mau hapus $nama?'),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Batal'),
+        ),
+        TextButton(
+          onPressed: () {
+            Navigator.pop(context);
+            _hapusUser(uid, nama);
+          },
+          child: const Text('Hapus', style: TextStyle(color: Colors.red)),
+        ),
+      ],
+    ),
+  );
+}
 
   Widget _buildLaporan() {
     return StreamBuilder<QuerySnapshot>(
