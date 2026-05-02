@@ -427,6 +427,18 @@ void _showDeleteConfirm(String uid, String nama) {
   );
 }
 
+Future<void> tambahProject(String uid) async {
+  await FirebaseFirestore.instance.collection('users').doc(uid).update({
+    'projects': FieldValue.arrayUnion([
+      {
+        'title': 'Aplikasi Flutter',
+        'desc': 'App matching partner',
+        'year': 2026,
+      }
+    ])
+  });
+}
+
   Widget _buildLaporan() {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance.collection('reports').orderBy('createdAt', descending: true).snapshots(),

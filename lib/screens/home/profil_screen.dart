@@ -3,6 +3,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../core/theme.dart';
 import '../../services/auth_service.dart';
+import 'dart:io';
+import 'package:image_picker/image_picker.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 
 class ProfilScreen extends StatefulWidget {
   const ProfilScreen({super.key});
@@ -19,6 +22,7 @@ class _ProfilScreenState extends State<ProfilScreen> {
   String _selectedSkill = '';
   String _selectedSkill2 = '';
   bool _isSaving = false;
+  File? _image;
 
   final List<String> _skills = [
     'Desain UI/UX', 'Ngoding (Web/App)', 'Editing Video',
@@ -111,6 +115,84 @@ class _ProfilScreenState extends State<ProfilScreen> {
     );
   }
 
+  void _showAddProjectDialog() {
+    final titleC = TextEditingController();
+    final descC = TextEditingController();
+    final yearC = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (_) => StatefulBuilder(
+        builder: (context, setStateDialog) {
+          return AlertDialog(
+            title: const Text("Tambah Project"),
+            content: SingleChildScrollView(
+              child: Column(
+                children: [
+                  TextField(controller: titleC, decoration: const InputDecoration(labelText: "Judul")),
+                  TextField(controller: descC, decoration: const InputDecoration(labelText: "Deskripsi")),
+                  TextField(controller: yearC, decoration: const InputDecoration(labelText: "Tahun")),
+
+                  const SizedBox(height: 10),
+
+                  // 🔥 PREVIEW GAMBAR
+                  _image != null
+                      ? Image.file(_image!, height: 100)
+                      : const Text("Belum ada gambar"),
+
+                  TextButton(
+                    onPressed: () async {
+                      final picked = await ImagePicker().pickImage(source: ImageSource.gallery);
+                      if (picked != null) {
+                        setState(() {
+                          _image = File(picked.path);
+                        });
+                        setStateDialog(() {});
+                      }
+                    },
+                    child: const Text("Pilih Gambar"),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(context), child: const Text("Batal")),
+              ElevatedButton(
+                onPressed: () async {
+                  final ref = FirebaseFirestore.instance.collection('users').doc(_myUid);
+
+                  final snap = await ref.get();
+                  final data = snap.data() ?? {};
+                  final List projects = data['projects'] ?? [];
+
+                  String? imageUrl;
+
+                  if (_image != null) {
+                    imageUrl = await _uploadImage(_image!);
+                  }
+
+                  projects.add({
+                    'title': titleC.text,
+                    'desc': descC.text,
+                    'year': yearC.text,
+                    'image': imageUrl ?? '',
+                  });
+
+                  await ref.update({'projects': projects});
+
+                  _image = null;
+
+                  Navigator.pop(context);
+                },
+                child: const Text("Simpan"),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -163,6 +245,7 @@ class _ProfilScreenState extends State<ProfilScreen> {
           final following = List<String>.from(data['following'] ?? []);
           final likes = List<String>.from(data['likes'] ?? []);
           final matches = List<String>.from(data['matches'] ?? []);
+          final projects = List<Map<String, dynamic>>.from(data['projects'] ?? []);
 
           if (!_isEditing) {
             _namaController.text = nama;
@@ -235,6 +318,103 @@ class _ProfilScreenState extends State<ProfilScreen> {
                         Text(bio, textAlign: TextAlign.center,
                             style: const TextStyle(fontSize: 13, color: AppColors.textSecondary, height: 1.6)),
                       ],
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Projects Section
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppColors.surface,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8)
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text("Project Saya",
+                              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+
+                          // 🔥 BUTTON TAMBAH
+                          GestureDetector(
+                            onTap: _showAddProjectDialog,
+                            child: Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                color: AppColors.primary.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Icon(Icons.add, size: 18, color: AppColors.primary),
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 12),
+
+                      if (projects.isEmpty)
+                        const Text("Belum ada project",
+                            style: TextStyle(color: Colors.grey))
+                      else
+                        ...projects.map((p) => Container(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(14),
+                            color: Colors.white,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.05),
+                                blurRadius: 8,
+                              )
+                            ],
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // 🔥 GAMBAR
+                              if (p['image'] != null && p['image'] != '')
+                                ClipRRect(
+                                  borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
+                                  child: Image.network(
+                                    p['image'],
+                                    height: 150,
+                                    width: double.infinity,
+                                    fit: BoxFit.cover,
+                                  ),
+                                ),
+
+                              Padding(
+                                padding: const EdgeInsets.all(12),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      p['title'] ?? '',
+                                      style: const TextStyle(fontWeight: FontWeight.bold),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      p['desc'] ?? '',
+                                      style: const TextStyle(fontSize: 12),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      "${p['year']}",
+                                      style: const TextStyle(fontSize: 11, color: Colors.grey),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        )).toList(),
                     ],
                   ),
                 ),
@@ -363,7 +543,32 @@ class _ProfilScreenState extends State<ProfilScreen> {
           );
         },
       ),
-    );  
+    );
+  }
+
+  Future<void> _pickImage() async {
+    final picked = await ImagePicker().pickImage(source: ImageSource.gallery);
+
+    if (picked != null) {
+      setState(() {
+        _image = File(picked.path);
+      });
+    }
+  }
+
+  Future<String?> _uploadImage(File file) async {
+    try {
+      final ref = FirebaseStorage.instance
+          .ref()
+          .child('projects/${DateTime.now().millisecondsSinceEpoch}.jpg');
+
+      await ref.putFile(file);
+
+      return await ref.getDownloadURL();
+    } catch (e) {
+      print("Upload error: $e");
+      return null;
+    }
   }
 
   Widget _statCol(String num, String label, Color color) {
