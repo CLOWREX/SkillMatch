@@ -338,6 +338,13 @@ class _CariScreenState extends State<CariScreen> with SingleTickerProviderStateM
     final followers = (u['followers'] as List?)?.length ?? 0;
     final likes = (u['likes'] as List?)?.length ?? 0;
 
+    // 🔥 FITUR BARU: ambil project user (safe cast)
+    final rawProjects = u['projects'] as List? ?? [];
+    final projects = rawProjects
+        .whereType<Map>()
+        .map((e) => Map<String, dynamic>.from(e))
+        .toList();
+
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surface,
@@ -422,6 +429,92 @@ class _CariScreenState extends State<CariScreen> with SingleTickerProviderStateM
                     Text('$followers followers', style: const TextStyle(fontSize: 13, color: AppColors.textSecondary)),
                   ],
                 ),
+
+                // 🔥 FITUR BARU: tampilkan project user di kartu
+                if (projects.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  const Divider(),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      const Icon(Icons.work_outline_rounded, size: 14, color: AppColors.textSecondary),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Project (${projects.length})',
+                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: projects.map((p) {
+                        final hasImage = p['image'] != null && p['image'].toString().isNotEmpty;
+                        return Container(
+                          width: 160,
+                          height: 120,
+                          margin: const EdgeInsets.only(right: 10),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            color: AppColors.background,
+                            border: Border.all(color: Colors.grey.shade200),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (hasImage)
+                                ClipRRect(
+                                  borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                                  child: Image.network(
+                                    p['image'],
+                                    height: 70,
+                                    width: 160,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) => Container(
+                                      height: 70,
+                                      width: 160,
+                                      color: Colors.grey.shade100,
+                                      child: const Center(child: Icon(Icons.image_outlined, color: Colors.grey, size: 20)),
+                                    ),
+                                  ),
+                                )
+                              else
+                                Container(
+                                  height: 70,
+                                  width: 160,
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primaryLight,
+                                    borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                                  ),
+                                  child: const Center(child: Icon(Icons.work_outline_rounded, color: AppColors.primary, size: 24)),
+                                ),
+                              Padding(
+                                padding: const EdgeInsets.all(8),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      p['title'] ?? '',
+                                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    Text(
+                                      '${p['year']}',
+                                      style: const TextStyle(fontSize: 10, color: Colors.grey),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ],
+
                 const SizedBox(height: 20),
                 Row(
                   children: [

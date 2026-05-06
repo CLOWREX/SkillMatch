@@ -4,8 +4,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../../core/theme.dart';
 import '../../services/auth_service.dart';
 import 'dart:io';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 
 class ProfilScreen extends StatefulWidget {
   const ProfilScreen({super.key});
@@ -22,7 +23,6 @@ class _ProfilScreenState extends State<ProfilScreen> {
   String _selectedSkill = '';
   String _selectedSkill2 = '';
   bool _isSaving = false;
-  File? _image;
 
   final List<String> _skills = [
     'Desain UI/UX', 'Ngoding (Web/App)', 'Editing Video',
@@ -119,6 +119,8 @@ class _ProfilScreenState extends State<ProfilScreen> {
     final titleC = TextEditingController();
     final descC = TextEditingController();
     final yearC = TextEditingController();
+    File? dialogImage;
+    bool isUploading = false;
 
     showDialog(
       context: context,
@@ -132,57 +134,78 @@ class _ProfilScreenState extends State<ProfilScreen> {
                   TextField(controller: titleC, decoration: const InputDecoration(labelText: "Judul")),
                   TextField(controller: descC, decoration: const InputDecoration(labelText: "Deskripsi")),
                   TextField(controller: yearC, decoration: const InputDecoration(labelText: "Tahun")),
-
                   const SizedBox(height: 10),
-
-                  // 🔥 PREVIEW GAMBAR
-                  _image != null
-                      ? Image.file(_image!, height: 100)
-                      : const Text("Belum ada gambar"),
-
-                  TextButton(
+                  dialogImage != null
+                      ? ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.file(dialogImage!, height: 100, width: double.infinity, fit: BoxFit.cover),
+                        )
+                      : Container(
+                          height: 80,
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade100,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.grey.shade300),
+                          ),
+                          child: const Center(child: Text("Belum ada gambar", style: TextStyle(color: Colors.grey))),
+                        ),
+                  TextButton.icon(
                     onPressed: () async {
                       final picked = await ImagePicker().pickImage(source: ImageSource.gallery);
                       if (picked != null) {
-                        setState(() {
-                          _image = File(picked.path);
-                        });
-                        setStateDialog(() {});
+                        setStateDialog(() => dialogImage = File(picked.path));
                       }
                     },
-                    child: const Text("Pilih Gambar"),
+                    icon: const Icon(Icons.image_outlined),
+                    label: const Text("Pilih Gambar"),
                   ),
+                  if (isUploading)
+                    const Padding(
+                      padding: EdgeInsets.only(top: 8),
+                      child: Row(
+                        children: [
+                          SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
+                          SizedBox(width: 8),
+                          Text("Mengupload gambar...", style: TextStyle(fontSize: 12, color: Colors.grey)),
+                        ],
+                      ),
+                    ),
                 ],
               ),
             ),
             actions: [
               TextButton(onPressed: () => Navigator.pop(context), child: const Text("Batal")),
               ElevatedButton(
-                onPressed: () async {
-                  final ref = FirebaseFirestore.instance.collection('users').doc(_myUid);
+                onPressed: isUploading ? null : () async {
+                  if (titleC.text.trim().isEmpty) return;
 
+                  setStateDialog(() => isUploading = true);
+
+                  final ref = FirebaseFirestore.instance.collection('users').doc(_myUid);
                   final snap = await ref.get();
                   final data = snap.data() ?? {};
-                  final List projects = data['projects'] ?? [];
+                  final List projects = List.from(data['projects'] ?? []);
 
                   String? imageUrl;
-
-                  if (_image != null) {
-                    imageUrl = await _uploadImage(_image!);
+                  if (dialogImage != null) {
+                    imageUrl = await _uploadImage(dialogImage!);
                   }
 
                   projects.add({
-                    'title': titleC.text,
-                    'desc': descC.text,
-                    'year': yearC.text,
+                    'title': titleC.text.trim(),
+                    'desc': descC.text.trim(),
+                    'year': yearC.text.trim(),
                     'image': imageUrl ?? '',
                   });
 
                   await ref.update({'projects': projects});
 
-                  _image = null;
-
+                  setStateDialog(() => isUploading = false);
                   Navigator.pop(context);
+
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Project berhasil ditambah!'), backgroundColor: AppColors.success),
+                  );
                 },
                 child: const Text("Simpan"),
               ),
@@ -191,6 +214,58 @@ class _ProfilScreenState extends State<ProfilScreen> {
         },
       ),
     );
+  }
+
+  Future<void> _hapusProject(int index, List<Map<String, dynamic>> projects) async {
+    final konfirmasi = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text("Hapus Project"),
+        content: const Text("Yakin mau hapus project ini?"),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text("Batal")),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.error, foregroundColor: Colors.white),
+            child: const Text("Hapus"),
+          ),
+        ],
+      ),
+    );
+
+    if (konfirmasi == true) {
+      final newProjects = List<Map<String, dynamic>>.from(projects);
+      newProjects.removeAt(index);
+      await FirebaseFirestore.instance.collection('users').doc(_myUid).update({
+        'projects': newProjects,
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Project berhasil dihapus!'), backgroundColor: AppColors.error),
+      );
+    }
+  }
+
+  Future<String?> _uploadImage(File file) async {
+    try {
+      final bytes = await file.readAsBytes();
+      final base64Image = base64Encode(bytes);
+
+      final response = await http.post(
+        Uri.parse('https://api.imgbb.com/1/upload?key=b089d336ae628a18b1cb4f9b0de8f998'),
+        body: {'image': base64Image},
+      );
+
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body);
+        return json['data']['url'] as String?;
+      } else {
+        print("ImgBB error: ${response.body}");
+        return null;
+      }
+    } catch (e) {
+      print("Upload error: $e");
+      return null;
+    }
   }
 
   @override
@@ -245,7 +320,8 @@ class _ProfilScreenState extends State<ProfilScreen> {
           final following = List<String>.from(data['following'] ?? []);
           final likes = List<String>.from(data['likes'] ?? []);
           final matches = List<String>.from(data['matches'] ?? []);
-          final projects = List<Map<String, dynamic>>.from(data['projects'] ?? []);
+          final rawProjects = data['projects'] as List? ?? [];
+          final projects = rawProjects.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
 
           if (!_isEditing) {
             _namaController.text = nama;
@@ -292,7 +368,6 @@ class _ProfilScreenState extends State<ProfilScreen> {
                           child: Text(skill, style: const TextStyle(fontSize: 12, color: AppColors.primary, fontWeight: FontWeight.w600)),
                         ),
                       const SizedBox(height: 16),
-                      // Stats — data real semua
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceAround,
                         children: [
@@ -329,9 +404,7 @@ class _ProfilScreenState extends State<ProfilScreen> {
                   decoration: BoxDecoration(
                     color: AppColors.surface,
                     borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8)
-                    ],
+                    boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8)],
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -341,8 +414,6 @@ class _ProfilScreenState extends State<ProfilScreen> {
                         children: [
                           const Text("Project Saya",
                               style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
-
-                          // 🔥 BUTTON TAMBAH
                           GestureDetector(
                             onTap: _showAddProjectDialog,
                             child: Container(
@@ -356,65 +427,73 @@ class _ProfilScreenState extends State<ProfilScreen> {
                           ),
                         ],
                       ),
-
                       const SizedBox(height: 12),
-
                       if (projects.isEmpty)
-                        const Text("Belum ada project",
-                            style: TextStyle(color: Colors.grey))
+                        const Text("Belum ada project", style: TextStyle(color: Colors.grey))
                       else
-                        ...projects.map((p) => Container(
-                          margin: const EdgeInsets.only(bottom: 12),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(14),
-                            color: Colors.white,
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.05),
-                                blurRadius: 8,
-                              )
-                            ],
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              // 🔥 GAMBAR
-                              if (p['image'] != null && p['image'] != '')
-                                ClipRRect(
-                                  borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
-                                  child: Image.network(
-                                    p['image'],
-                                    height: 150,
-                                    width: double.infinity,
-                                    fit: BoxFit.cover,
+                        ...projects.asMap().entries.map((entry) {
+                          final index = entry.key;
+                          final p = entry.value;
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(14),
+                              color: Colors.white,
+                              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 8)],
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                if (p['image'] != null && p['image'].toString().isNotEmpty)
+                                  ClipRRect(
+                                    borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
+                                    child: Image.network(
+                                      p['image'],
+                                      height: 150,
+                                      width: double.infinity,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (_, __, ___) => Container(
+                                        height: 80,
+                                        color: Colors.grey.shade100,
+                                        child: const Center(child: Icon(Icons.broken_image_outlined, color: Colors.grey)),
+                                      ),
+                                    ),
+                                  ),
+                                Padding(
+                                  padding: const EdgeInsets.all(12),
+                                  child: Row(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(p['title'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold)),
+                                            const SizedBox(height: 4),
+                                            Text(p['desc'] ?? '', style: const TextStyle(fontSize: 12)),
+                                            const SizedBox(height: 4),
+                                            Text("${p['year']}", style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                                          ],
+                                        ),
+                                      ),
+                                      GestureDetector(
+                                        onTap: () => _hapusProject(index, projects),
+                                        child: Container(
+                                          padding: const EdgeInsets.all(6),
+                                          decoration: BoxDecoration(
+                                            color: AppColors.error.withOpacity(0.1),
+                                            borderRadius: BorderRadius.circular(8),
+                                          ),
+                                          child: const Icon(Icons.delete_outline, size: 18, color: AppColors.error),
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
-
-                              Padding(
-                                padding: const EdgeInsets.all(12),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      p['title'] ?? '',
-                                      style: const TextStyle(fontWeight: FontWeight.bold),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      p['desc'] ?? '',
-                                      style: const TextStyle(fontSize: 12),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      "${p['year']}",
-                                      style: const TextStyle(fontSize: 11, color: Colors.grey),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        )).toList(),
+                              ],
+                            ),
+                          );
+                        }).toList(),
                     ],
                   ),
                 ),
@@ -544,31 +623,6 @@ class _ProfilScreenState extends State<ProfilScreen> {
         },
       ),
     );
-  }
-
-  Future<void> _pickImage() async {
-    final picked = await ImagePicker().pickImage(source: ImageSource.gallery);
-
-    if (picked != null) {
-      setState(() {
-        _image = File(picked.path);
-      });
-    }
-  }
-
-  Future<String?> _uploadImage(File file) async {
-    try {
-      final ref = FirebaseStorage.instance
-          .ref()
-          .child('projects/${DateTime.now().millisecondsSinceEpoch}.jpg');
-
-      await ref.putFile(file);
-
-      return await ref.getDownloadURL();
-    } catch (e) {
-      print("Upload error: $e");
-      return null;
-    }
   }
 
   Widget _statCol(String num, String label, Color color) {
