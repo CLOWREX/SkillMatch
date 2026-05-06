@@ -46,7 +46,15 @@ class _ProfilScreenState extends State<ProfilScreen> {
   }
 
   Color _avatarColor(String av) {
-    const colors = [AppColors.primary, Color(0xFF10B981), Color(0xFFF59E0B), Color(0xFFEF4444), Color(0xFF8B5CF6), Color(0xFF06B6D4), Color(0xFFEC4899)];
+    const colors = [
+      AppColors.primary,
+      Color(0xFF10B981),
+      Color(0xFFF59E0B),
+      Color(0xFFEF4444),
+      Color(0xFF8B5CF6),
+      Color(0xFF06B6D4),
+      Color(0xFFEC4899),
+    ];
     return colors[av.hashCode % colors.length];
   }
 
@@ -57,38 +65,74 @@ class _ProfilScreenState extends State<ProfilScreen> {
       'skill': _selectedSkill,
       'skill2': _selectedSkill2,
       'bio': _bioController.text.trim(),
-      'avatar': _namaController.text.trim().split(' ').map((w) => w.isNotEmpty ? w[0] : '').join().substring(0, _namaController.text.trim().split(' ').length >= 2 ? 2 : 1).toUpperCase(),
+      'avatar': _namaController.text
+          .trim()
+          .split(' ')
+          .map((w) => w.isNotEmpty ? w[0] : '')
+          .join()
+          .substring(
+            0,
+            _namaController.text.trim().split(' ').length >= 2 ? 2 : 1,
+          )
+          .toUpperCase(),
     });
-    setState(() { _isSaving = false; _isEditing = false; });
+    setState(() {
+      _isSaving = false;
+      _isEditing = false;
+    });
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Profil berhasil disimpan!'), backgroundColor: AppColors.success),
+      const SnackBar(
+        content: Text('Profil berhasil disimpan!'),
+        backgroundColor: AppColors.success,
+      ),
     );
   }
 
   void _showPeopleList(String tipe, List<String> uids) async {
     if (uids.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Belum ada $tipe'), backgroundColor: AppColors.textSecondary),
+        SnackBar(
+          content: Text('Belum ada $tipe'),
+          backgroundColor: AppColors.textSecondary,
+        ),
       );
       return;
     }
 
-    final snap = await FirebaseFirestore.instance.collection('users')
-        .where(FieldPath.documentId, whereIn: uids).get();
-    final people = snap.docs.map((d) => {'id': d.id, ...d.data()}).toList();
-    final title = tipe == 'Followers' ? 'Followers kamu' : tipe == 'Following' ? 'Kamu following' : 'Yang menyukaimu';
+    final snap = await FirebaseFirestore.instance
+        .collection('users')
+        .where(FieldPath.documentId, whereIn: uids)
+        .get();
+    final people =
+        snap.docs.map((d) => {'id': d.id, ...d.data()}).toList();
+    final title = tipe == 'Followers'
+        ? 'Followers kamu'
+        : tipe == 'Following'
+            ? 'Kamu following'
+            : 'Yang menyukaimu';
 
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       builder: (_) => Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           const SizedBox(height: 12),
-          Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2))),
+          Container(
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: Colors.grey.shade300,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
           const SizedBox(height: 16),
-          Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+          Text(title,
+              style:
+                  const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
           const Divider(),
           Flexible(
             child: ListView.builder(
@@ -101,10 +145,18 @@ class _ProfilScreenState extends State<ProfilScreen> {
                 return ListTile(
                   leading: CircleAvatar(
                     backgroundColor: avColor.withOpacity(0.15),
-                    child: Text(av, style: TextStyle(color: avColor, fontWeight: FontWeight.w700, fontSize: 13)),
+                    child: Text(av,
+                        style: TextStyle(
+                          color: avColor,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13,
+                        )),
                   ),
-                  title: Text(p['nama'] ?? '', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                  subtitle: Text(p['skill'] ?? '', style: const TextStyle(fontSize: 12)),
+                  title: Text(p['nama'] ?? '',
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w600, fontSize: 14)),
+                  subtitle: Text(p['skill'] ?? '',
+                      style: const TextStyle(fontSize: 12)),
                 );
               },
             ),
@@ -131,29 +183,52 @@ class _ProfilScreenState extends State<ProfilScreen> {
             content: SingleChildScrollView(
               child: Column(
                 children: [
-                  TextField(controller: titleC, decoration: const InputDecoration(labelText: "Judul")),
-                  TextField(controller: descC, decoration: const InputDecoration(labelText: "Deskripsi")),
-                  TextField(controller: yearC, decoration: const InputDecoration(labelText: "Tahun")),
+                  TextField(
+                    controller: titleC,
+                    decoration:
+                        const InputDecoration(labelText: "Judul"),
+                  ),
+                  TextField(
+                    controller: descC,
+                    decoration:
+                        const InputDecoration(labelText: "Deskripsi"),
+                  ),
+                  TextField(
+                    controller: yearC,
+                    decoration:
+                        const InputDecoration(labelText: "Tahun"),
+                  ),
                   const SizedBox(height: 10),
                   dialogImage != null
                       ? ClipRRect(
                           borderRadius: BorderRadius.circular(8),
-                          child: Image.file(dialogImage!, height: 100, width: double.infinity, fit: BoxFit.cover),
+                          child: Image.file(
+                            dialogImage!,
+                            height: 100,
+                            width: double.infinity,
+                            fit: BoxFit.cover,
+                          ),
                         )
                       : Container(
                           height: 80,
                           decoration: BoxDecoration(
                             color: Colors.grey.shade100,
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.grey.shade300),
+                            border:
+                                Border.all(color: Colors.grey.shade300),
                           ),
-                          child: const Center(child: Text("Belum ada gambar", style: TextStyle(color: Colors.grey))),
+                          child: const Center(
+                            child: Text("Belum ada gambar",
+                                style: TextStyle(color: Colors.grey)),
+                          ),
                         ),
                   TextButton.icon(
                     onPressed: () async {
-                      final picked = await ImagePicker().pickImage(source: ImageSource.gallery);
+                      final picked = await ImagePicker()
+                          .pickImage(source: ImageSource.gallery);
                       if (picked != null) {
-                        setStateDialog(() => dialogImage = File(picked.path));
+                        setStateDialog(
+                            () => dialogImage = File(picked.path));
                       }
                     },
                     icon: const Icon(Icons.image_outlined),
@@ -164,9 +239,16 @@ class _ProfilScreenState extends State<ProfilScreen> {
                       padding: EdgeInsets.only(top: 8),
                       child: Row(
                         children: [
-                          SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
+                          SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2),
+                          ),
                           SizedBox(width: 8),
-                          Text("Mengupload gambar...", style: TextStyle(fontSize: 12, color: Colors.grey)),
+                          Text("Mengupload gambar...",
+                              style: TextStyle(
+                                  fontSize: 12, color: Colors.grey)),
                         ],
                       ),
                     ),
@@ -174,39 +256,51 @@ class _ProfilScreenState extends State<ProfilScreen> {
               ),
             ),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(context), child: const Text("Batal")),
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text("Batal"),
+              ),
               ElevatedButton(
-                onPressed: isUploading ? null : () async {
-                  if (titleC.text.trim().isEmpty) return;
+                onPressed: isUploading
+                    ? null
+                    : () async {
+                        if (titleC.text.trim().isEmpty) return;
 
-                  setStateDialog(() => isUploading = true);
+                        setStateDialog(() => isUploading = true);
 
-                  final ref = FirebaseFirestore.instance.collection('users').doc(_myUid);
-                  final snap = await ref.get();
-                  final data = snap.data() ?? {};
-                  final List projects = List.from(data['projects'] ?? []);
+                        final ref = FirebaseFirestore.instance
+                            .collection('users')
+                            .doc(_myUid);
+                        final snap = await ref.get();
+                        final data = snap.data() ?? {};
+                        final List projects =
+                            List.from(data['projects'] ?? []);
 
-                  String? imageUrl;
-                  if (dialogImage != null) {
-                    imageUrl = await _uploadImage(dialogImage!);
-                  }
+                        String? imageUrl;
+                        if (dialogImage != null) {
+                          imageUrl =
+                              await _uploadImage(dialogImage!);
+                        }
 
-                  projects.add({
-                    'title': titleC.text.trim(),
-                    'desc': descC.text.trim(),
-                    'year': yearC.text.trim(),
-                    'image': imageUrl ?? '',
-                  });
+                        projects.add({
+                          'title': titleC.text.trim(),
+                          'desc': descC.text.trim(),
+                          'year': yearC.text.trim(),
+                          'image': imageUrl ?? '',
+                        });
 
-                  await ref.update({'projects': projects});
+                        await ref.update({'projects': projects});
 
-                  setStateDialog(() => isUploading = false);
-                  Navigator.pop(context);
+                        setStateDialog(() => isUploading = false);
+                        Navigator.pop(context);
 
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Project berhasil ditambah!'), backgroundColor: AppColors.success),
-                  );
-                },
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Project berhasil ditambah!'),
+                            backgroundColor: AppColors.success,
+                          ),
+                        );
+                      },
                 child: const Text("Simpan"),
               ),
             ],
@@ -216,17 +310,24 @@ class _ProfilScreenState extends State<ProfilScreen> {
     );
   }
 
-  Future<void> _hapusProject(int index, List<Map<String, dynamic>> projects) async {
+  Future<void> _hapusProject(
+      int index, List<Map<String, dynamic>> projects) async {
     final konfirmasi = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
         title: const Text("Hapus Project"),
         content: const Text("Yakin mau hapus project ini?"),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text("Batal")),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text("Batal"),
+          ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.error, foregroundColor: Colors.white),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.error,
+              foregroundColor: Colors.white,
+            ),
             child: const Text("Hapus"),
           ),
         ],
@@ -236,11 +337,15 @@ class _ProfilScreenState extends State<ProfilScreen> {
     if (konfirmasi == true) {
       final newProjects = List<Map<String, dynamic>>.from(projects);
       newProjects.removeAt(index);
-      await FirebaseFirestore.instance.collection('users').doc(_myUid).update({
-        'projects': newProjects,
-      });
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(_myUid)
+          .update({'projects': newProjects});
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Project berhasil dihapus!'), backgroundColor: AppColors.error),
+        const SnackBar(
+          content: Text('Project berhasil dihapus!'),
+          backgroundColor: AppColors.error,
+        ),
       );
     }
   }
@@ -251,7 +356,8 @@ class _ProfilScreenState extends State<ProfilScreen> {
       final base64Image = base64Encode(bytes);
 
       final response = await http.post(
-        Uri.parse('https://api.imgbb.com/1/upload?key=b089d336ae628a18b1cb4f9b0de8f998'),
+        Uri.parse(
+            'https://api.imgbb.com/1/upload?key=b089d336ae628a18b1cb4f9b0de8f998'),
         body: {'image': base64Image},
       );
 
@@ -259,13 +365,63 @@ class _ProfilScreenState extends State<ProfilScreen> {
         final json = jsonDecode(response.body);
         return json['data']['url'] as String?;
       } else {
-        print("ImgBB error: ${response.body}");
+        debugPrint("ImgBB error: ${response.body}");
         return null;
       }
     } catch (e) {
-      print("Upload error: $e");
+      debugPrint("Upload error: $e");
       return null;
     }
+  }
+
+  // ─── FIX: Widget gambar project dengan loadingBuilder ───────────────
+  Widget _buildProjectImage(String imageUrl) {
+    return ClipRRect(
+      borderRadius:
+          const BorderRadius.vertical(top: Radius.circular(14)),
+      child: Image.network(
+        imageUrl,
+        height: 150,
+        width: double.infinity,
+        fit: BoxFit.cover,
+        // Tampil spinner saat loading — bukan blank putih
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) return child;
+          return Container(
+            height: 150,
+            color: Colors.grey.shade100,
+            child: Center(
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                value: loadingProgress.expectedTotalBytes != null
+                    ? loadingProgress.cumulativeBytesLoaded /
+                        loadingProgress.expectedTotalBytes!
+                    : null,
+                color: AppColors.primary,
+              ),
+            ),
+          );
+        },
+        // Tampil icon broken jika URL error/gagal load
+        errorBuilder: (_, __, ___) => Container(
+          height: 150,
+          color: Colors.grey.shade100,
+          child: const Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.broken_image_outlined,
+                    color: Colors.grey, size: 32),
+                SizedBox(height: 4),
+                Text("Gagal memuat gambar",
+                    style:
+                        TextStyle(fontSize: 11, color: Colors.grey)),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -274,12 +430,17 @@ class _ProfilScreenState extends State<ProfilScreen> {
       backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: AppColors.surface,
-        title: const Text('Profil', style: TextStyle(fontWeight: FontWeight.w700)),
+        title: const Text('Profil',
+            style: TextStyle(fontWeight: FontWeight.w700)),
         actions: [
           StreamBuilder<DocumentSnapshot>(
-            stream: FirebaseFirestore.instance.collection('users').doc(_myUid).snapshots(),
+            stream: FirebaseFirestore.instance
+                .collection('users')
+                .doc(_myUid)
+                .snapshots(),
             builder: (context, snapshot) {
-              final data = snapshot.data?.data() as Map<String, dynamic>?;
+              final data =
+                  snapshot.data?.data() as Map<String, dynamic>?;
               return TextButton(
                 onPressed: () {
                   if (_isEditing) {
@@ -287,46 +448,68 @@ class _ProfilScreenState extends State<ProfilScreen> {
                   } else {
                     _namaController.text = data?['nama'] ?? '';
                     _bioController.text = data?['bio'] ?? '';
-                    _selectedSkill = data?['skill'] ?? _skills[0];
+                    _selectedSkill =
+                        data?['skill'] ?? _skills[0];
                     _selectedSkill2 = data?['skill2'] ?? '';
                     setState(() => _isEditing = true);
                   }
                 },
-                child: Text(_isEditing ? 'Simpan' : 'Edit',
-                    style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600)),
+                child: Text(
+                  _isEditing ? 'Simpan' : 'Edit',
+                  style: const TextStyle(
+                    color: AppColors.primary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               );
             },
           ),
         ],
       ),
       body: StreamBuilder<DocumentSnapshot>(
-        stream: FirebaseFirestore.instance.collection('users').doc(_myUid).snapshots(),
+        stream: FirebaseFirestore.instance
+            .collection('users')
+            .doc(_myUid)
+            .snapshots(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator(color: AppColors.primary));
+            return const Center(
+              child:
+                  CircularProgressIndicator(color: AppColors.primary),
+            );
           }
           if (!snapshot.hasData || !snapshot.data!.exists) {
-            return const Center(child: Text('Data tidak ditemukan'));
+            return const Center(
+                child: Text('Data tidak ditemukan'));
           }
 
-          final data = snapshot.data!.data() as Map<String, dynamic>;
+          final data =
+              snapshot.data!.data() as Map<String, dynamic>;
           final nama = data['nama'] ?? '';
           final skill = data['skill'] ?? '';
           final skill2 = data['skill2'] ?? '';
           final bio = data['bio'] ?? '';
           final av = data['avatar'] ?? 'X';
           final avColor = _avatarColor(av);
-          final followers = List<String>.from(data['followers'] ?? []);
-          final following = List<String>.from(data['following'] ?? []);
+          final followers =
+              List<String>.from(data['followers'] ?? []);
+          final following =
+              List<String>.from(data['following'] ?? []);
           final likes = List<String>.from(data['likes'] ?? []);
-          final matches = List<String>.from(data['matches'] ?? []);
+          final matches =
+              List<String>.from(data['matches'] ?? []);
           final rawProjects = data['projects'] as List? ?? [];
-          final projects = rawProjects.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
+          final projects = rawProjects
+              .whereType<Map>()
+              .map((e) => Map<String, dynamic>.from(e))
+              .toList();
 
           if (!_isEditing) {
             _namaController.text = nama;
             _bioController.text = bio;
-            if (_selectedSkill.isEmpty) _selectedSkill = skill.isNotEmpty ? skill : _skills[0];
+            if (_selectedSkill.isEmpty)
+              _selectedSkill =
+                  skill.isNotEmpty ? skill : _skills[0];
             if (_selectedSkill2.isEmpty) _selectedSkill2 = skill2;
           }
 
@@ -334,157 +517,258 @@ class _ProfilScreenState extends State<ProfilScreen> {
             padding: const EdgeInsets.all(16),
             child: Column(
               children: [
-                // Profile Card
+                // ── Profile Card ──────────────────────────────────
                 Container(
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
                     color: AppColors.surface,
                     borderRadius: BorderRadius.circular(20),
-                    boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)],
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 10,
+                      )
+                    ],
                   ),
                   child: Column(
                     children: [
                       Container(
-                        width: 80, height: 80,
+                        width: 80,
+                        height: 80,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           gradient: LinearGradient(
-                            colors: [avColor.withOpacity(0.3), avColor.withOpacity(0.1)],
+                            colors: [
+                              avColor.withOpacity(0.3),
+                              avColor.withOpacity(0.1),
+                            ],
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                           ),
                         ),
                         child: Center(
-                          child: Text(av, style: TextStyle(color: avColor, fontSize: 26, fontWeight: FontWeight.w800)),
+                          child: Text(
+                            av,
+                            style: TextStyle(
+                              color: avColor,
+                              fontSize: 26,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
                         ),
                       ),
                       const SizedBox(height: 12),
-                      Text(nama, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+                      Text(
+                        nama,
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
                       const SizedBox(height: 4),
                       if (skill.isNotEmpty)
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                          decoration: BoxDecoration(color: AppColors.primaryLight, borderRadius: BorderRadius.circular(20)),
-                          child: Text(skill, style: const TextStyle(fontSize: 12, color: AppColors.primary, fontWeight: FontWeight.w600)),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: AppColors.primaryLight,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            skill,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: AppColors.primary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                         ),
                       const SizedBox(height: 16),
                       Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        mainAxisAlignment:
+                            MainAxisAlignment.spaceAround,
                         children: [
                           GestureDetector(
-                            onTap: () => _showPeopleList('Followers', followers),
-                            child: _statCol('${followers.length}', 'Followers', AppColors.primary),
+                            onTap: () => _showPeopleList(
+                                'Followers', followers),
+                            child: _statCol(
+                                '${followers.length}',
+                                'Followers',
+                                AppColors.primary),
                           ),
                           GestureDetector(
-                            onTap: () => _showPeopleList('Following', following),
-                            child: _statCol('${following.length}', 'Following', AppColors.secondary),
+                            onTap: () => _showPeopleList(
+                                'Following', following),
+                            child: _statCol(
+                                '${following.length}',
+                                'Following',
+                                AppColors.secondary),
                           ),
                           GestureDetector(
-                            onTap: () => _showPeopleList('Likes', likes),
-                            child: _statCol('${likes.length}', 'Likes', Colors.pink),
+                            onTap: () =>
+                                _showPeopleList('Likes', likes),
+                            child: _statCol('${likes.length}',
+                                'Likes', Colors.pink),
                           ),
-                          _statCol('${matches.length}', 'Match', AppColors.success),
+                          _statCol('${matches.length}', 'Match',
+                              AppColors.success),
                         ],
                       ),
                       if (bio.isNotEmpty) ...[
                         const SizedBox(height: 12),
                         const Divider(),
                         const SizedBox(height: 8),
-                        Text(bio, textAlign: TextAlign.center,
-                            style: const TextStyle(fontSize: 13, color: AppColors.textSecondary, height: 1.6)),
+                        Text(
+                          bio,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: AppColors.textSecondary,
+                            height: 1.6,
+                          ),
+                        ),
                       ],
                     ],
                   ),
                 ),
                 const SizedBox(height: 16),
 
-                // Projects Section
+                // ── Projects Section ──────────────────────────────
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
                     color: AppColors.surface,
                     borderRadius: BorderRadius.circular(16),
-                    boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8)],
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.04),
+                        blurRadius: 8,
+                      )
+                    ],
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        mainAxisAlignment:
+                            MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text("Project Saya",
-                              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+                          const Text(
+                            "Project Saya",
+                            style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 15,
+                            ),
+                          ),
                           GestureDetector(
                             onTap: _showAddProjectDialog,
                             child: Container(
                               padding: const EdgeInsets.all(6),
                               decoration: BoxDecoration(
-                                color: AppColors.primary.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(8),
+                                color: AppColors.primary
+                                    .withOpacity(0.1),
+                                borderRadius:
+                                    BorderRadius.circular(8),
                               ),
-                              child: const Icon(Icons.add, size: 18, color: AppColors.primary),
+                              child: const Icon(Icons.add,
+                                  size: 18,
+                                  color: AppColors.primary),
                             ),
                           ),
                         ],
                       ),
                       const SizedBox(height: 12),
                       if (projects.isEmpty)
-                        const Text("Belum ada project", style: TextStyle(color: Colors.grey))
+                        const Text("Belum ada project",
+                            style: TextStyle(color: Colors.grey))
                       else
                         ...projects.asMap().entries.map((entry) {
                           final index = entry.key;
                           final p = entry.value;
+                          final imageUrl =
+                              p['image']?.toString() ?? '';
+
                           return Container(
-                            margin: const EdgeInsets.only(bottom: 12),
+                            margin:
+                                const EdgeInsets.only(bottom: 12),
                             decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(14),
+                              borderRadius:
+                                  BorderRadius.circular(14),
                               color: Colors.white,
-                              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 8)],
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black
+                                      .withOpacity(0.05),
+                                  blurRadius: 8,
+                                )
+                              ],
                             ),
                             child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                              crossAxisAlignment:
+                                  CrossAxisAlignment.start,
                               children: [
-                                if (p['image'] != null && p['image'].toString().isNotEmpty)
-                                  ClipRRect(
-                                    borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
-                                    child: Image.network(
-                                      p['image'],
-                                      height: 150,
-                                      width: double.infinity,
-                                      fit: BoxFit.cover,
-                                      errorBuilder: (_, __, ___) => Container(
-                                        height: 80,
-                                        color: Colors.grey.shade100,
-                                        child: const Center(child: Icon(Icons.broken_image_outlined, color: Colors.grey)),
-                                      ),
-                                    ),
-                                  ),
+                                // ── FIX: pakai _buildProjectImage ──
+                                if (imageUrl.isNotEmpty)
+                                  _buildProjectImage(imageUrl),
+
                                 Padding(
                                   padding: const EdgeInsets.all(12),
                                   child: Row(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Expanded(
                                         child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment
+                                                  .start,
                                           children: [
-                                            Text(p['title'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold)),
-                                            const SizedBox(height: 4),
-                                            Text(p['desc'] ?? '', style: const TextStyle(fontSize: 12)),
-                                            const SizedBox(height: 4),
-                                            Text("${p['year']}", style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                                            Text(
+                                              p['title'] ?? '',
+                                              style: const TextStyle(
+                                                  fontWeight:
+                                                      FontWeight
+                                                          .bold),
+                                            ),
+                                            const SizedBox(
+                                                height: 4),
+                                            Text(
+                                              p['desc'] ?? '',
+                                              style: const TextStyle(
+                                                  fontSize: 12),
+                                            ),
+                                            const SizedBox(
+                                                height: 4),
+                                            Text(
+                                              "${p['year']}",
+                                              style: const TextStyle(
+                                                fontSize: 11,
+                                                color: Colors.grey,
+                                              ),
+                                            ),
                                           ],
                                         ),
                                       ),
                                       GestureDetector(
-                                        onTap: () => _hapusProject(index, projects),
+                                        onTap: () => _hapusProject(
+                                            index, projects),
                                         child: Container(
-                                          padding: const EdgeInsets.all(6),
+                                          padding:
+                                              const EdgeInsets.all(
+                                                  6),
                                           decoration: BoxDecoration(
-                                            color: AppColors.error.withOpacity(0.1),
-                                            borderRadius: BorderRadius.circular(8),
+                                            color: AppColors.error
+                                                .withOpacity(0.1),
+                                            borderRadius:
+                                                BorderRadius.circular(
+                                                    8),
                                           ),
-                                          child: const Icon(Icons.delete_outline, size: 18, color: AppColors.error),
+                                          child: const Icon(
+                                            Icons.delete_outline,
+                                            size: 18,
+                                            color: AppColors.error,
+                                          ),
                                         ),
                                       ),
                                     ],
@@ -499,71 +783,160 @@ class _ProfilScreenState extends State<ProfilScreen> {
                 ),
                 const SizedBox(height: 16),
 
-                // Edit Form
+                // ── Edit Form ─────────────────────────────────────
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
                     color: AppColors.surface,
                     borderRadius: BorderRadius.circular(16),
-                    boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8)],
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.04),
+                        blurRadius: 8,
+                      )
+                    ],
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
                         children: [
-                          const Icon(Icons.edit_outlined, size: 16, color: AppColors.textSecondary),
+                          const Icon(Icons.edit_outlined,
+                              size: 16,
+                              color: AppColors.textSecondary),
                           const SizedBox(width: 6),
-                          const Text('Edit Profil', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textSecondary)),
+                          const Text(
+                            'Edit Profil',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
                         ],
                       ),
                       const SizedBox(height: 14),
-                      const Text('Nama', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                      const Text('Nama',
+                          style: TextStyle(
+                              fontSize: 12,
+                              color: AppColors.textSecondary)),
                       const SizedBox(height: 6),
                       TextField(
                         controller: _namaController,
                         enabled: _isEditing,
                         decoration: InputDecoration(
                           filled: true,
-                          fillColor: _isEditing ? Colors.white : AppColors.background,
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey.shade200)),
-                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey.shade200)),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          fillColor: _isEditing
+                              ? Colors.white
+                              : AppColors.background,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: BorderSide(
+                                color: Colors.grey.shade200),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: BorderSide(
+                                color: Colors.grey.shade200),
+                          ),
+                          contentPadding:
+                              const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 10),
                         ),
                       ),
                       const SizedBox(height: 12),
-                      const Text('Skill utama', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                      const Text('Skill utama',
+                          style: TextStyle(
+                              fontSize: 12,
+                              color: AppColors.textSecondary)),
                       const SizedBox(height: 6),
                       DropdownButtonFormField<String>(
-                        value: _selectedSkill.isNotEmpty && _skills.contains(_selectedSkill) ? _selectedSkill : _skills[0],
+                        value: _selectedSkill.isNotEmpty &&
+                                _skills.contains(_selectedSkill)
+                            ? _selectedSkill
+                            : _skills[0],
                         decoration: InputDecoration(
                           filled: true,
-                          fillColor: _isEditing ? Colors.white : AppColors.background,
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey.shade200)),
-                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey.shade200)),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          fillColor: _isEditing
+                              ? Colors.white
+                              : AppColors.background,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: BorderSide(
+                                color: Colors.grey.shade200),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: BorderSide(
+                                color: Colors.grey.shade200),
+                          ),
+                          contentPadding:
+                              const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 8),
                         ),
-                        items: _skills.map((s) => DropdownMenuItem(value: s, child: Text(s, style: const TextStyle(fontSize: 14)))).toList(),
-                        onChanged: _isEditing ? (v) => setState(() => _selectedSkill = v!) : null,
+                        items: _skills
+                            .map((s) => DropdownMenuItem(
+                                  value: s,
+                                  child: Text(s,
+                                      style: const TextStyle(
+                                          fontSize: 14)),
+                                ))
+                            .toList(),
+                        onChanged: _isEditing
+                            ? (v) => setState(
+                                () => _selectedSkill = v!)
+                            : null,
                       ),
                       const SizedBox(height: 12),
-                      const Text('Skill tambahan', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                      const Text('Skill tambahan',
+                          style: TextStyle(
+                              fontSize: 12,
+                              color: AppColors.textSecondary)),
                       const SizedBox(height: 6),
                       DropdownButtonFormField<String>(
-                        value: _selectedSkill2.isNotEmpty && _skills.contains(_selectedSkill2) ? _selectedSkill2 : null,
-                        hint: const Text('-- Opsional --', style: TextStyle(fontSize: 14)),
+                        value: _selectedSkill2.isNotEmpty &&
+                                _skills.contains(_selectedSkill2)
+                            ? _selectedSkill2
+                            : null,
+                        hint: const Text('-- Opsional --',
+                            style: TextStyle(fontSize: 14)),
                         decoration: InputDecoration(
                           filled: true,
-                          fillColor: _isEditing ? Colors.white : AppColors.background,
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey.shade200)),
-                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey.shade200)),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          fillColor: _isEditing
+                              ? Colors.white
+                              : AppColors.background,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: BorderSide(
+                                color: Colors.grey.shade200),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: BorderSide(
+                                color: Colors.grey.shade200),
+                          ),
+                          contentPadding:
+                              const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 8),
                         ),
-                        items: _skills.map((s) => DropdownMenuItem(value: s, child: Text(s, style: const TextStyle(fontSize: 14)))).toList(),
-                        onChanged: _isEditing ? (v) => setState(() => _selectedSkill2 = v ?? '') : null,
+                        items: _skills
+                            .map((s) => DropdownMenuItem(
+                                  value: s,
+                                  child: Text(s,
+                                      style: const TextStyle(
+                                          fontSize: 14)),
+                                ))
+                            .toList(),
+                        onChanged: _isEditing
+                            ? (v) => setState(
+                                () => _selectedSkill2 = v ?? '')
+                            : null,
                       ),
                       const SizedBox(height: 12),
-                      const Text('Bio', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                      const Text('Bio',
+                          style: TextStyle(
+                              fontSize: 12,
+                              color: AppColors.textSecondary)),
                       const SizedBox(height: 6),
                       TextField(
                         controller: _bioController,
@@ -571,10 +944,21 @@ class _ProfilScreenState extends State<ProfilScreen> {
                         maxLines: 3,
                         decoration: InputDecoration(
                           filled: true,
-                          fillColor: _isEditing ? Colors.white : AppColors.background,
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey.shade200)),
-                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey.shade200)),
-                          contentPadding: const EdgeInsets.all(12),
+                          fillColor: _isEditing
+                              ? Colors.white
+                              : AppColors.background,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: BorderSide(
+                                color: Colors.grey.shade200),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: BorderSide(
+                                color: Colors.grey.shade200),
+                          ),
+                          contentPadding:
+                              const EdgeInsets.all(12),
                         ),
                       ),
                       if (_isEditing) ...[
@@ -583,15 +967,24 @@ class _ProfilScreenState extends State<ProfilScreen> {
                           width: double.infinity,
                           height: 48,
                           child: ElevatedButton(
-                            onPressed: _isSaving ? null : () => _simpanProfil(data),
+                            onPressed: _isSaving
+                                ? null
+                                : () => _simpanProfil(data),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppColors.primary,
                               foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              shape: RoundedRectangleBorder(
+                                borderRadius:
+                                    BorderRadius.circular(12),
+                              ),
                             ),
                             child: _isSaving
-                                ? const CircularProgressIndicator(color: Colors.white)
-                                : const Text('Simpan profil', style: TextStyle(fontWeight: FontWeight.w600)),
+                                ? const CircularProgressIndicator(
+                                    color: Colors.white)
+                                : const Text('Simpan profil',
+                                    style: TextStyle(
+                                        fontWeight:
+                                            FontWeight.w600)),
                           ),
                         ),
                       ],
@@ -601,16 +994,25 @@ class _ProfilScreenState extends State<ProfilScreen> {
                         height: 48,
                         child: OutlinedButton.icon(
                           onPressed: () async {
-                            await FirebaseFirestore.instance.collection('users').doc(_myUid).update({'status': 'offline'});
+                            await FirebaseFirestore.instance
+                                .collection('users')
+                                .doc(_myUid)
+                                .update({'status': 'offline'});
                             await _authService.logout();
-                            Navigator.pushReplacementNamed(context, '/login');
+                            Navigator.pushReplacementNamed(
+                                context, '/login');
                           },
-                          icon: const Icon(Icons.logout_rounded, size: 18),
+                          icon: const Icon(Icons.logout_rounded,
+                              size: 18),
                           label: const Text('Keluar'),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: AppColors.error,
-                            side: const BorderSide(color: AppColors.error),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            side: const BorderSide(
+                                color: AppColors.error),
+                            shape: RoundedRectangleBorder(
+                              borderRadius:
+                                  BorderRadius.circular(12),
+                            ),
                           ),
                         ),
                       ),
@@ -628,9 +1030,20 @@ class _ProfilScreenState extends State<ProfilScreen> {
   Widget _statCol(String num, String label, Color color) {
     return Column(
       children: [
-        Text(num, style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: color)),
+        Text(
+          num,
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w800,
+            color: color,
+          ),
+        ),
         const SizedBox(height: 2),
-        Text(label, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+        Text(
+          label,
+          style: const TextStyle(
+              fontSize: 12, color: AppColors.textSecondary),
+        ),
       ],
     );
   }
