@@ -13,12 +13,12 @@ class UserService {
   }
 
   Future<void> addMatch(String targetUid) async {
-    await _db.collection('users').doc(myUid).update({
+    await _db.collection('users').doc(myUid).set({
       'matches': FieldValue.arrayUnion([targetUid]),
-    });
-    await _db.collection('users').doc(targetUid).update({
+    }, SetOptions(merge: true));
+    await _db.collection('users').doc(targetUid).set({
       'matches': FieldValue.arrayUnion([myUid]),
-    });
+    }, SetOptions(merge: true));
     final chatId = _chatId(myUid, targetUid);
     await _db.collection('chats').doc(chatId).set({
       'participants': [myUid, targetUid],
@@ -34,11 +34,19 @@ class UserService {
     final myDoc = await _db.collection('users').doc(myUid).get();
     final following = List<String>.from(myDoc.data()?['following'] ?? []);
     if (following.contains(targetUid)) {
-      await _db.collection('users').doc(myUid).update({'following': FieldValue.arrayRemove([targetUid])});
-      await _db.collection('users').doc(targetUid).update({'followers': FieldValue.arrayRemove([myUid])});
+      await _db.collection('users').doc(myUid).set({
+        'following': FieldValue.arrayRemove([targetUid]),
+      }, SetOptions(merge: true));
+      await _db.collection('users').doc(targetUid).set({
+        'followers': FieldValue.arrayRemove([myUid]),
+      }, SetOptions(merge: true));
     } else {
-      await _db.collection('users').doc(myUid).update({'following': FieldValue.arrayUnion([targetUid])});
-      await _db.collection('users').doc(targetUid).update({'followers': FieldValue.arrayUnion([myUid])});
+      await _db.collection('users').doc(myUid).set({
+        'following': FieldValue.arrayUnion([targetUid]),
+      }, SetOptions(merge: true));
+      await _db.collection('users').doc(targetUid).set({
+        'followers': FieldValue.arrayUnion([myUid]),
+      }, SetOptions(merge: true));
     }
   }
 
@@ -46,11 +54,19 @@ class UserService {
     final myDoc = await _db.collection('users').doc(myUid).get();
     final liked = List<String>.from(myDoc.data()?['likedUsers'] ?? []);
     if (liked.contains(targetUid)) {
-      await _db.collection('users').doc(myUid).update({'likedUsers': FieldValue.arrayRemove([targetUid])});
-      await _db.collection('users').doc(targetUid).update({'likes': FieldValue.arrayRemove([myUid])});
+      await _db.collection('users').doc(myUid).set({
+        'likedUsers': FieldValue.arrayRemove([targetUid]),
+      }, SetOptions(merge: true));
+      await _db.collection('users').doc(targetUid).set({
+        'likes': FieldValue.arrayRemove([myUid]),
+      }, SetOptions(merge: true));
     } else {
-      await _db.collection('users').doc(myUid).update({'likedUsers': FieldValue.arrayUnion([targetUid])});
-      await _db.collection('users').doc(targetUid).update({'likes': FieldValue.arrayUnion([myUid])});
+      await _db.collection('users').doc(myUid).set({
+        'likedUsers': FieldValue.arrayUnion([targetUid]),
+      }, SetOptions(merge: true));
+      await _db.collection('users').doc(targetUid).set({
+        'likes': FieldValue.arrayUnion([myUid]),
+      }, SetOptions(merge: true));
     }
   }
 
@@ -64,7 +80,10 @@ class UserService {
       for (final doc in snapshot.docs) {
         final data = doc.data();
         final participants = List<String>.from(data['participants'] ?? []);
-        final otherUid = participants.firstWhere((uid) => uid != myUid, orElse: () => '');
+        final otherUid = participants.firstWhere(
+          (uid) => uid != myUid,
+          orElse: () => '',
+        );
         if (otherUid.isEmpty) continue;
         final userDoc = await _db.collection('users').doc(otherUid).get();
         if (!userDoc.exists) continue;
@@ -78,7 +97,6 @@ class UserService {
           'id': otherUid,
         });
       }
-      // Sort by lastTime descending
       chats.sort((a, b) {
         final at = a['lastTime'];
         final bt = b['lastTime'];
@@ -94,7 +112,11 @@ class UserService {
   Future<void> sendMessage(String otherUid, String text) async {
     final chatId = _chatId(myUid, otherUid);
     final now = FieldValue.serverTimestamp();
-    await _db.collection('chats').doc(chatId).collection('messages').add({
+    await _db
+        .collection('chats')
+        .doc(chatId)
+        .collection('messages')
+        .add({
       'from': myUid,
       'text': text,
       'createdAt': now,

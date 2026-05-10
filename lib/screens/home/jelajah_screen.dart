@@ -35,7 +35,7 @@ class _JelajahScreenState extends State<JelajahScreen> {
       return nama.contains(q) && !nama.startsWith(q);
     }).toList();
     return [...exact, ...starts, ...contains];
-  }
+  } 
 
   void _lihatProfil(Map<String, dynamic> u, Map<String, dynamic> myData) {
     showModalBottomSheet(

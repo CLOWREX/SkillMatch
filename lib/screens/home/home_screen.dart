@@ -45,9 +45,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   Future<void> _setStatus(String status) async {
     if (_myUid.isEmpty) return;
     try {
-      await FirebaseFirestore.instance.collection('users').doc(_myUid).update({
-        'status': status,
-      });
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(_myUid)
+          .set({'status': status}, SetOptions(merge: true)); // ✅ FIX
     } catch (_) {}
   }
 

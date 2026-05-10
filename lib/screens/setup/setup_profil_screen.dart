@@ -33,34 +33,37 @@ class _SetupProfilScreenState extends State<SetupProfilScreen> {
   final Set<String> _selectedHobi = {};
 
   Future<void> _simpanProfil() async {
-    if (_bioController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Bio tidak boleh kosong!')),
-      );
-      return;
-    }
-    setState(() => _isLoading = true);
-    try {
-      final uid = FirebaseAuth.instance.currentUser!.uid;
-      await FirebaseFirestore.instance.collection('users').doc(uid).update({
-        'skill': _selectedSkill,
-        'skill2': _selectedSkill2,
-        'bio': _bioController.text.trim(),
-        'hobi': _selectedHobi.toList(),
-        'isProfileComplete': true,
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const HomeScreen()),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Gagal menyimpan profil, coba lagi.')),
-      );
-    }
-    setState(() => _isLoading = false);
+  if (_bioController.text.trim().isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Bio tidak boleh kosong!')),
+    );
+    return;
   }
+  setState(() => _isLoading = true);
+  try {
+    final uid = FirebaseAuth.instance.currentUser!.uid;
+    await FirebaseFirestore.instance
+        .collection('users')
+        .doc(uid)
+        .set({                              // ✅ ganti update → set
+      'skill': _selectedSkill,
+      'skill2': _selectedSkill2,
+      'bio': _bioController.text.trim(),
+      'hobi': _selectedHobi.toList(),
+      'isProfileComplete': true,
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));            // ✅ merge: true
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (_) => const HomeScreen()),
+    );
+  } catch (e) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Gagal menyimpan profil, coba lagi.')),
+    );
+  }
+  setState(() => _isLoading = false);
+}
 
   @override
   Widget build(BuildContext context) {
