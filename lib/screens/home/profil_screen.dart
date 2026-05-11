@@ -120,13 +120,12 @@ class _ProfilScreenState extends State<ProfilScreen> {
       'skill2': _selectedSkill2,
       'bio': _bioController.text.trim(),
       'isProfileComplete': true,
-      'avatar': _namaController.text
-          .trim()
-          .split(' ')
-          .map((w) => w.isNotEmpty ? w[0] : '')
-          .join()
-          .substring(0, _namaController.text.trim().split(' ').length >= 2 ? 2 : 1)
-          .toUpperCase(),
+      'avatar': () {
+        final parts = _namaController.text.trim().split(' ');
+        final initials = parts.map((w) => w.isNotEmpty ? w[0] : '').join();
+        if (initials.isEmpty) return 'U';
+        return initials.substring(0, initials.length >= 2 ? 2 : 1).toUpperCase();
+      }(),
     }, SetOptions(merge: true));
     setState(() {
       _isSaving = false;

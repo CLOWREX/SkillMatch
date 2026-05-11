@@ -84,20 +84,16 @@ class _CariScreenState extends State<CariScreen> with SingleTickerProviderStateM
     }
     setState(() => _isLoading = true);
     final myUid = FirebaseAuth.instance.currentUser?.uid;
-
     final snap = await FirebaseFirestore.instance
         .collection('users')
         .where('isProfileComplete', isEqualTo: true)
         .get();
-
     final users = snap.docs
         .where((d) => d.id != myUid)
         .map((d) => {'id': d.id, ...d.data()})
         .toList();
-
     final scored = users.map((u) => {...u, 'score': _scoreMatch(u, _selectedSkill!)}).toList();
     scored.sort((a, b) => (b['score'] as int).compareTo(a['score'] as int));
-
     setState(() {
       _candidates = scored;
       _currentIdx = 0;
@@ -107,8 +103,27 @@ class _CariScreenState extends State<CariScreen> with SingleTickerProviderStateM
     _animController.forward(from: 0);
   }
 
+  // 🔥 CEK SUSPEND SEBELUM MATCH
+  Future<bool> _cekSuspend() async {
+    final myUid = FirebaseAuth.instance.currentUser?.uid ?? '';
+    final punishDoc = await FirebaseFirestore.instance
+        .collection('punishments')
+        .doc(myUid)
+        .get();
+    if (!punishDoc.exists) return false;
+    final data = punishDoc.data()!;
+    if (data['type'] == 'suspend_chat') {
+      final until = (data['until'] as Timestamp).toDate();
+      if (DateTime.now().isBefore(until)) return true;
+    }
+    return false;
+  }
+
   Color _avatarColor(String av) {
-    const colors = [AppColors.primary, Color(0xFF10B981), Color(0xFFF59E0B), Color(0xFFEF4444), Color(0xFF8B5CF6), Color(0xFF06B6D4), Color(0xFFEC4899)];
+    const colors = [
+      AppColors.primary, AppColors.success, AppColors.warning,
+      AppColors.error, Color(0xFF8B5CF6), AppColors.secondary, AppColors.pink,
+    ];
     return colors[av.hashCode % colors.length];
   }
 
@@ -119,7 +134,7 @@ class _CariScreenState extends State<CariScreen> with SingleTickerProviderStateM
       body: CustomScrollView(
         slivers: [
           SliverAppBar(
-            expandedHeight: 120,
+            expandedHeight: 110,
             floating: true,
             snap: true,
             backgroundColor: AppColors.surface,
@@ -128,9 +143,14 @@ class _CariScreenState extends State<CariScreen> with SingleTickerProviderStateM
               title: Column(
                 mainAxisAlignment: MainAxisAlignment.end,
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
-                  Text('SkillMatch', style: TextStyle(color: AppColors.primary, fontSize: 20, fontWeight: FontWeight.w700)),
-                  Text('Temukan partner skill terbaik', style: TextStyle(color: AppColors.textSecondary, fontSize: 11, fontWeight: FontWeight.w400)),
+                children: [
+                  ShaderMask(
+                    shaderCallback: (bounds) => AppColors.gradientPrimary.createShader(bounds),
+                    child: const Text('SkillMatch',
+                        style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w700)),
+                  ),
+                  const Text('Temukan partner skill terbaik',
+                      style: TextStyle(color: AppColors.textSecondary, fontSize: 11, fontWeight: FontWeight.w400)),
                 ],
               ),
             ),
@@ -167,17 +187,25 @@ class _CariScreenState extends State<CariScreen> with SingleTickerProviderStateM
                   duration: const Duration(milliseconds: 200),
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   decoration: BoxDecoration(
-                    color: selected ? AppColors.primary : AppColors.surface,
-                    border: Border.all(color: selected ? AppColors.primary : Colors.grey.shade200, width: selected ? 2 : 1),
+                    color: selected ? AppColors.primaryLight : AppColors.card,
+                    border: Border.all(
+                      color: selected ? AppColors.primary : AppColors.border,
+                      width: selected ? 1.5 : 1,
+                    ),
                     borderRadius: BorderRadius.circular(12),
-                    boxShadow: selected ? [BoxShadow(color: AppColors.primary.withOpacity(0.2), blurRadius: 8, offset: const Offset(0, 2))] : [],
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(_skillIcons[s] ?? Icons.star, size: 16, color: selected ? Colors.white : AppColors.textSecondary),
+                      Icon(_skillIcons[s] ?? Icons.star,
+                          size: 16,
+                          color: selected ? AppColors.primary : AppColors.textSecondary),
                       const SizedBox(width: 6),
-                      Text(s, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: selected ? Colors.white : AppColors.textPrimary)),
+                      Text(s,
+                          style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                              color: selected ? AppColors.primary : AppColors.textPrimary)),
                     ],
                   ),
                 ),
@@ -187,16 +215,17 @@ class _CariScreenState extends State<CariScreen> with SingleTickerProviderStateM
           const SizedBox(height: 24),
           Container(
             decoration: BoxDecoration(
-              color: AppColors.surface,
+              color: AppColors.card,
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: Colors.grey.shade200),
+              border: Border.all(color: AppColors.border),
             ),
             child: TextField(
               controller: _descController,
               maxLines: 3,
+              style: const TextStyle(color: AppColors.textPrimary),
               decoration: const InputDecoration(
                 hintText: 'Ceritain projekmu... (opsional)',
-                hintStyle: TextStyle(fontSize: 14, color: AppColors.textSecondary),
+                hintStyle: TextStyle(fontSize: 14, color: AppColors.textHint),
                 border: InputBorder.none,
                 contentPadding: EdgeInsets.all(16),
               ),
@@ -206,32 +235,37 @@ class _CariScreenState extends State<CariScreen> with SingleTickerProviderStateM
           SizedBox(
             width: double.infinity,
             height: 52,
-            child: ElevatedButton(
-              onPressed: _isLoading ? null : _cariPartner,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
-                elevation: 4,
-                shadowColor: AppColors.primary.withOpacity(0.4),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: AppColors.gradientPrimary,
+                borderRadius: BorderRadius.circular(14),
               ),
-              child: _isLoading
-                  ? const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)),
-                        SizedBox(width: 12),
-                        Text('AI sedang mencarikan...', style: TextStyle(fontSize: 15)),
-                      ],
-                    )
-                  : const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.auto_awesome, size: 18),
-                        SizedBox(width: 8),
-                        Text('Carikan partner terbaik', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
-                      ],
-                    ),
+              child: ElevatedButton(
+                onPressed: _isLoading ? null : _cariPartner,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.transparent,
+                  shadowColor: Colors.transparent,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                ),
+                child: _isLoading
+                    ? const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)),
+                          SizedBox(width: 12),
+                          Text('AI sedang mencarikan...', style: TextStyle(fontSize: 15, color: Colors.white)),
+                        ],
+                      )
+                    : const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.auto_awesome, size: 18, color: Colors.white),
+                          SizedBox(width: 8),
+                          Text('Carikan partner terbaik',
+                              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Colors.white)),
+                        ],
+                      ),
+              ),
             ),
           ),
         ],
@@ -253,9 +287,9 @@ class _CariScreenState extends State<CariScreen> with SingleTickerProviderStateM
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     decoration: BoxDecoration(
-                      color: AppColors.surface,
+                      color: AppColors.card,
                       borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: Colors.grey.shade200),
+                      border: Border.all(color: AppColors.border),
                     ),
                     child: const Row(
                       children: [
@@ -279,51 +313,44 @@ class _CariScreenState extends State<CariScreen> with SingleTickerProviderStateM
             ),
             const SizedBox(height: 16),
             if (_candidates.isEmpty)
-              Container(
-                padding: const EdgeInsets.all(32),
-                alignment: Alignment.center,
-                decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(20)),
-                child: Column(
-                  children: [
-                    const Icon(Icons.search_off_rounded, size: 48, color: AppColors.textSecondary),
-                    const SizedBox(height: 12),
-                    const Text('Belum ada user dengan skill ini', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
-                    const SizedBox(height: 4),
-                    const Text('Coba skill lain', style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
-                    const SizedBox(height: 16),
-                    ElevatedButton(
-                      onPressed: () => setState(() { _showResult = false; _animController.reset(); }),
-                      style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
-                      child: const Text('Cari lagi'),
-                    ),
-                  ],
-                ),
-              )
+              _emptyState(Icons.search_off_rounded, 'Belum ada user dengan skill ini', 'Coba skill lain')
             else if (_currentIdx < _candidates.length)
               _buildKartu(_candidates[_currentIdx])
             else
-              Container(
-                padding: const EdgeInsets.all(32),
-                alignment: Alignment.center,
-                decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(20)),
-                child: Column(
-                  children: [
-                    const Icon(Icons.check_circle_outline_rounded, size: 48, color: AppColors.success),
-                    const SizedBox(height: 12),
-                    const Text('Semua kandidat sudah ditampilkan', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
-                    const SizedBox(height: 4),
-                    const Text('Coba cari dengan skill berbeda', style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
-                    const SizedBox(height: 16),
-                    ElevatedButton(
-                      onPressed: () => setState(() { _showResult = false; _animController.reset(); }),
-                      style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
-                      child: const Text('Cari lagi'),
-                    ),
-                  ],
-                ),
-              ),
+              _emptyState(Icons.check_circle_outline_rounded, 'Semua kandidat sudah ditampilkan', 'Coba cari dengan skill berbeda'),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _emptyState(IconData icon, String title, String subtitle) {
+    return Container(
+      padding: const EdgeInsets.all(32),
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, size: 48, color: AppColors.textSecondary),
+          const SizedBox(height: 12),
+          Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+          const SizedBox(height: 4),
+          Text(subtitle, style: const TextStyle(color: AppColors.textSecondary, fontSize: 13)),
+          const SizedBox(height: 16),
+          ElevatedButton(
+            onPressed: () => setState(() { _showResult = false; _animController.reset(); }),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            child: const Text('Cari lagi'),
+          ),
+        ],
       ),
     );
   }
@@ -331,8 +358,8 @@ class _CariScreenState extends State<CariScreen> with SingleTickerProviderStateM
   Widget _buildKartu(Map<String, dynamic> u) {
     final score = u['score'] as int;
     final scoreLabel = score >= 80 ? 'Sangat cocok' : score >= 60 ? 'Mendekati' : 'Terkait';
-    final scoreColor = score >= 80 ? AppColors.success : score >= 60 ? const Color(0xFFF59E0B) : AppColors.error;
-    final scoreBg = score >= 80 ? AppColors.successLight : score >= 60 ? const Color(0xFFFEF3C7) : const Color(0xFFFEE2E2);
+    final scoreColor = score >= 80 ? AppColors.success : score >= 60 ? AppColors.warning : AppColors.error;
+    final scoreBg = score >= 80 ? AppColors.successLight : score >= 60 ? const Color(0x15FBBF24) : AppColors.errorLight;
     final av = u['avatar'] ?? 'X';
     final avColor = _avatarColor(av);
     final followers = (u['followers'] as List?)?.length ?? 0;
@@ -340,20 +367,16 @@ class _CariScreenState extends State<CariScreen> with SingleTickerProviderStateM
 
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: AppColors.card,
         borderRadius: BorderRadius.circular(24),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 20, offset: const Offset(0, 4))],
+        border: Border.all(color: AppColors.border),
       ),
       child: Column(
         children: [
           Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [avColor.withOpacity(0.15), avColor.withOpacity(0.05)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
+              color: avColor.withOpacity(0.08),
               borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
             ),
             child: Column(
@@ -370,16 +393,21 @@ class _CariScreenState extends State<CariScreen> with SingleTickerProviderStateM
                       child: Container(
                         width: 16, height: 16,
                         decoration: BoxDecoration(
-                          color: u['status'] == 'online' ? AppColors.success : u['status'] == 'sibuk' ? const Color(0xFFF59E0B) : Colors.grey,
+                          color: u['status'] == 'online'
+                              ? AppColors.success
+                              : u['status'] == 'sibuk'
+                                  ? AppColors.warning
+                                  : AppColors.textHint,
                           shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white, width: 2),
+                          border: Border.all(color: AppColors.card, width: 2),
                         ),
                       ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 12),
-                Text(u['nama'] ?? '', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+                Text(u['nama'] ?? '',
+                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
                 const SizedBox(height: 6),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
@@ -389,7 +417,8 @@ class _CariScreenState extends State<CariScreen> with SingleTickerProviderStateM
                     children: [
                       Icon(Icons.auto_awesome, size: 12, color: scoreColor),
                       const SizedBox(width: 4),
-                      Text('$scoreLabel · $score% match', style: TextStyle(fontSize: 12, color: scoreColor, fontWeight: FontWeight.w600)),
+                      Text('$scoreLabel · $score% match',
+                          style: TextStyle(fontSize: 12, color: scoreColor, fontWeight: FontWeight.w600)),
                     ],
                   ),
                 ),
@@ -401,7 +430,9 @@ class _CariScreenState extends State<CariScreen> with SingleTickerProviderStateM
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(u['bio'] ?? '', style: const TextStyle(fontSize: 14, color: AppColors.textSecondary, height: 1.6), textAlign: TextAlign.center),
+                Text(u['bio'] ?? '',
+                    style: const TextStyle(fontSize: 14, color: AppColors.textSecondary, height: 1.6),
+                    textAlign: TextAlign.center),
                 const SizedBox(height: 16),
                 Wrap(
                   spacing: 8, runSpacing: 8,
@@ -413,7 +444,7 @@ class _CariScreenState extends State<CariScreen> with SingleTickerProviderStateM
                 const SizedBox(height: 12),
                 Row(
                   children: [
-                    Icon(Icons.favorite_rounded, size: 14, color: Colors.pink.shade300),
+                    Icon(Icons.favorite_rounded, size: 14, color: AppColors.pink),
                     const SizedBox(width: 4),
                     Text('$likes', style: const TextStyle(fontSize: 13, color: AppColors.textSecondary)),
                     const SizedBox(width: 16),
@@ -444,32 +475,50 @@ class _CariScreenState extends State<CariScreen> with SingleTickerProviderStateM
                     const SizedBox(width: 12),
                     Expanded(
                       flex: 2,
-                      child: ElevatedButton.icon(
-                        onPressed: () async {
-                          final myUid = FirebaseAuth.instance.currentUser?.uid;
-                          if (myUid == null) return;
-                          final partnerId = u['id'].toString();
-                          await FirebaseFirestore.instance.collection('users').doc(myUid).update({
-                            'matches': FieldValue.arrayUnion([partnerId]),
-                          });
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('Terhubung dengan ${u['nama']}!'),
-                              backgroundColor: AppColors.success,
-                              behavior: SnackBarBehavior.floating,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                            ),
-                          );
-                        },
-                        icon: const Icon(Icons.handshake_rounded, size: 18),
-                        label: const Text('Pilih partner ini'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.success,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          elevation: 2,
-                          shadowColor: AppColors.success.withOpacity(0.4),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: AppColors.gradientPrimary,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: ElevatedButton.icon(
+                          onPressed: () async {
+                            // 🔥 CEK SUSPEND
+                            final isSuspend = await _cekSuspend();
+                            if (!mounted) return;
+                            if (isSuspend) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Kamu sedang disuspend, tidak bisa connect partner!'),
+                                  backgroundColor: Color(0xFFFBBF24),
+                                  behavior: SnackBarBehavior.floating,
+                                ),
+                              );
+                              return;
+                            }
+                            final myUid = FirebaseAuth.instance.currentUser?.uid;
+                            if (myUid == null) return;
+                            final partnerId = u['id'].toString();
+                            await FirebaseFirestore.instance
+                                .collection('users')
+                                .doc(myUid)
+                                .update({'matches': FieldValue.arrayUnion([partnerId])});
+                            if (!mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Terhubung dengan ${u['nama']}!'),
+                                backgroundColor: AppColors.success,
+                                behavior: SnackBarBehavior.floating,
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.handshake_rounded, size: 18, color: Colors.white),
+                          label: const Text('Pilih partner ini', style: TextStyle(color: Colors.white)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.transparent,
+                            shadowColor: Colors.transparent,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
                         ),
                       ),
                     ),

@@ -18,7 +18,10 @@ class _JelajahScreenState extends State<JelajahScreen> {
   final _userService = UserService();
 
   Color _avatarColor(String av) {
-    const colors = [AppColors.primary, Color(0xFF10B981), Color(0xFFF59E0B), Color(0xFFEF4444), Color(0xFF8B5CF6), Color(0xFF06B6D4), Color(0xFFEC4899)];
+    const colors = [
+      AppColors.primary, AppColors.success, AppColors.warning,
+      AppColors.error, Color(0xFF8B5CF6), AppColors.secondary, AppColors.pink,
+    ];
     return colors[av.hashCode % colors.length];
   }
 
@@ -35,7 +38,7 @@ class _JelajahScreenState extends State<JelajahScreen> {
       return nama.contains(q) && !nama.startsWith(q);
     }).toList();
     return [...exact, ...starts, ...contains];
-  } 
+  }
 
   void _lihatProfil(Map<String, dynamic> u, Map<String, dynamic> myData) {
     showModalBottomSheet(
@@ -57,14 +60,13 @@ class _JelajahScreenState extends State<JelajahScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Jelajah', style: TextStyle(fontWeight: FontWeight.w700)),
+        title: const Text('Jelajah', style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
         backgroundColor: AppColors.surface,
       ),
       body: StreamBuilder<DocumentSnapshot>(
         stream: FirebaseFirestore.instance.collection('users').doc(_myUid).snapshots(),
         builder: (context, mySnap) {
           final myData = mySnap.data?.data() as Map<String, dynamic>? ?? {};
-
           return Column(
             children: [
               Container(
@@ -73,9 +75,9 @@ class _JelajahScreenState extends State<JelajahScreen> {
                 child: TextField(
                   controller: _searchController,
                   onChanged: (v) => setState(() => _query = v),
+                  style: const TextStyle(color: AppColors.textPrimary),
                   decoration: InputDecoration(
                     hintText: 'Cari nama...',
-                    hintStyle: const TextStyle(color: AppColors.textSecondary, fontSize: 14),
                     prefixIcon: const Icon(Icons.search_rounded, color: AppColors.textSecondary),
                     suffixIcon: _query.isNotEmpty
                         ? IconButton(
@@ -84,7 +86,7 @@ class _JelajahScreenState extends State<JelajahScreen> {
                           )
                         : null,
                     filled: true,
-                    fillColor: AppColors.background,
+                    fillColor: AppColors.card,
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
                     contentPadding: const EdgeInsets.symmetric(vertical: 12),
                   ),
@@ -102,12 +104,10 @@ class _JelajahScreenState extends State<JelajahScreen> {
                     if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
                       return const Center(child: Text('Belum ada pengguna', style: TextStyle(color: AppColors.textSecondary)));
                     }
-
                     final allUsers = snapshot.data!.docs
                         .where((d) => d.id != _myUid)
                         .map((d) => {'id': d.id, ...d.data() as Map<String, dynamic>})
                         .toList();
-
                     final filtered = _filterAndSort(allUsers, _query);
                     final online = allUsers.where((u) => u['status'] == 'online').length;
                     final sibuk = allUsers.where((u) => u['status'] == 'sibuk').length;
@@ -120,17 +120,17 @@ class _JelajahScreenState extends State<JelajahScreen> {
                           margin: const EdgeInsets.all(16),
                           padding: const EdgeInsets.all(14),
                           decoration: BoxDecoration(
-                            color: AppColors.surface,
+                            color: AppColors.card,
                             borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: Colors.grey.shade100),
+                            border: Border.all(color: AppColors.border),
                           ),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceAround,
                             children: [
                               _statusCount(online, 'Online', AppColors.success),
-                              Container(width: 1, height: 30, color: Colors.grey.shade200),
-                              _statusCount(sibuk, 'Sibuk', const Color(0xFFF59E0B)),
-                              Container(width: 1, height: 30, color: Colors.grey.shade200),
+                              Container(width: 1, height: 30, color: AppColors.border),
+                              _statusCount(sibuk, 'Sibuk', AppColors.warning),
+                              Container(width: 1, height: 30, color: AppColors.border),
                               _statusCount(offline, 'Offline', AppColors.textSecondary),
                             ],
                           ),
@@ -143,7 +143,8 @@ class _JelajahScreenState extends State<JelajahScreen> {
                                     children: [
                                       const Icon(Icons.search_off_rounded, size: 48, color: AppColors.textSecondary),
                                       const SizedBox(height: 8),
-                                      Text('Tidak ada hasil untuk "$_query"', style: const TextStyle(color: AppColors.textSecondary)),
+                                      Text('Tidak ada hasil untuk "$_query"',
+                                          style: const TextStyle(color: AppColors.textSecondary)),
                                     ],
                                   ),
                                 )
@@ -162,9 +163,9 @@ class _JelajahScreenState extends State<JelajahScreen> {
                                         margin: const EdgeInsets.only(bottom: 10),
                                         padding: const EdgeInsets.all(14),
                                         decoration: BoxDecoration(
-                                          color: AppColors.surface,
+                                          color: AppColors.card,
                                           borderRadius: BorderRadius.circular(16),
-                                          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 2))],
+                                          border: Border.all(color: AppColors.border),
                                         ),
                                         child: Row(
                                           children: [
@@ -173,16 +174,21 @@ class _JelajahScreenState extends State<JelajahScreen> {
                                                 CircleAvatar(
                                                   radius: 24,
                                                   backgroundColor: avColor.withOpacity(0.15),
-                                                  child: Text(u['avatar'] ?? 'X', style: TextStyle(color: avColor, fontWeight: FontWeight.w700, fontSize: 14)),
+                                                  child: Text(u['avatar'] ?? 'X',
+                                                      style: TextStyle(color: avColor, fontWeight: FontWeight.w700, fontSize: 14)),
                                                 ),
                                                 Positioned(
                                                   right: 0, bottom: 0,
                                                   child: Container(
                                                     width: 12, height: 12,
                                                     decoration: BoxDecoration(
-                                                      color: u['status'] == 'online' ? AppColors.success : u['status'] == 'sibuk' ? const Color(0xFFF59E0B) : Colors.grey,
+                                                      color: u['status'] == 'online'
+                                                          ? AppColors.success
+                                                          : u['status'] == 'sibuk'
+                                                              ? AppColors.warning
+                                                              : AppColors.textHint,
                                                       shape: BoxShape.circle,
-                                                      border: Border.all(color: Colors.white, width: 2),
+                                                      border: Border.all(color: AppColors.card, width: 2),
                                                     ),
                                                   ),
                                                 ),
@@ -195,19 +201,22 @@ class _JelajahScreenState extends State<JelajahScreen> {
                                                 children: [
                                                   Row(
                                                     children: [
-                                                      Text(u['nama'] ?? '', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+                                                      Text(u['nama'] ?? '',
+                                                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
                                                       if (isFollowing) ...[
                                                         const SizedBox(width: 6),
                                                         Container(
                                                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                                           decoration: BoxDecoration(color: AppColors.primaryLight, borderRadius: BorderRadius.circular(20)),
-                                                          child: const Text('Following', style: TextStyle(fontSize: 10, color: AppColors.primary, fontWeight: FontWeight.w600)),
+                                                          child: const Text('Following',
+                                                              style: TextStyle(fontSize: 10, color: AppColors.primary, fontWeight: FontWeight.w600)),
                                                         ),
                                                       ],
                                                     ],
                                                   ),
                                                   const SizedBox(height: 2),
-                                                  Text(u['skill'] ?? '', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                                                  Text(u['skill'] ?? '',
+                                                      style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
                                                 ],
                                               ),
                                             ),
@@ -218,21 +227,30 @@ class _JelajahScreenState extends State<JelajahScreen> {
                                                   children: [
                                                     const Icon(Icons.people_rounded, size: 12, color: AppColors.textSecondary),
                                                     const SizedBox(width: 3),
-                                                    Text('${followers.length}', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                                                    Text('${followers.length}',
+                                                        style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
                                                   ],
                                                 ),
                                                 const SizedBox(height: 4),
                                                 Container(
                                                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                                   decoration: BoxDecoration(
-                                                    color: u['status'] == 'online' ? AppColors.successLight : u['status'] == 'sibuk' ? const Color(0xFFFEF3C7) : Colors.grey.shade100,
+                                                    color: u['status'] == 'online'
+                                                        ? AppColors.successLight
+                                                        : u['status'] == 'sibuk'
+                                                            ? const Color(0x15FBBF24)
+                                                            : AppColors.border,
                                                     borderRadius: BorderRadius.circular(20),
                                                   ),
                                                   child: Text(
                                                     u['status'] == 'online' ? 'Online' : u['status'] == 'sibuk' ? 'Sibuk' : 'Offline',
                                                     style: TextStyle(
                                                       fontSize: 10, fontWeight: FontWeight.w600,
-                                                      color: u['status'] == 'online' ? AppColors.success : u['status'] == 'sibuk' ? const Color(0xFFF59E0B) : Colors.grey,
+                                                      color: u['status'] == 'online'
+                                                          ? AppColors.success
+                                                          : u['status'] == 'sibuk'
+                                                              ? AppColors.warning
+                                                              : AppColors.textSecondary,
                                                     ),
                                                   ),
                                                 ),
@@ -282,40 +300,44 @@ class _ProfilSheet extends StatelessWidget {
     required this.avatarColor,
   });
 
-  // 🔥 FUNCTION LAPOR (FINAL - PAKAI FIRESTORE)
+  Future<bool> _cekSuspend() async {
+    final punishDoc = await FirebaseFirestore.instance
+        .collection('punishments')
+        .doc(myUid)
+        .get();
+    if (!punishDoc.exists) return false;
+    final data = punishDoc.data()!;
+    if (data['type'] == 'suspend_chat') {
+      final until = (data['until'] as Timestamp).toDate();
+      if (DateTime.now().isBefore(until)) return true;
+    }
+    return false;
+  }
+
   void _laporkan(BuildContext context) {
     final alasanController = TextEditingController();
-
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
+        backgroundColor: AppColors.card,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text(
-          'Laporkan User',
-          style: TextStyle(fontWeight: FontWeight.w700),
-        ),
+        title: const Text('Laporkan User',
+            style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Melaporkan: ${u['nama'] ?? 'User'}',
-              style: const TextStyle(
-                fontSize: 13,
-                color: AppColors.textSecondary,
-              ),
-            ),
+            Text('Melaporkan: ${u['nama'] ?? 'User'}',
+                style: const TextStyle(fontSize: 13, color: AppColors.textSecondary)),
             const SizedBox(height: 12),
-
             TextField(
               controller: alasanController,
               maxLines: 3,
+              style: const TextStyle(color: AppColors.textPrimary),
               decoration: InputDecoration(
                 hintText: 'Jelaskan alasan laporan...',
-                hintStyle: const TextStyle(fontSize: 13),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
+                hintStyle: const TextStyle(fontSize: 13, color: AppColors.textHint),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                 contentPadding: const EdgeInsets.all(12),
               ),
             ),
@@ -324,21 +346,14 @@ class _ProfilSheet extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Batal'),
+            child: const Text('Batal', style: TextStyle(color: AppColors.textSecondary)),
           ),
-
           ElevatedButton(
             onPressed: () async {
               if (alasanController.text.trim().isEmpty) return;
-
               try {
-                final myDoc = await FirebaseFirestore.instance
-                    .collection('users')
-                    .doc(myUid)
-                    .get();
-
+                final myDoc = await FirebaseFirestore.instance.collection('users').doc(myUid).get();
                 final myNama = myDoc.data()?['nama'] ?? 'Unknown';
-
                 await FirebaseFirestore.instance.collection('reports').add({
                   'reporterUid': myUid,
                   'reporterName': myNama,
@@ -348,10 +363,8 @@ class _ProfilSheet extends StatelessWidget {
                   'status': 'pending',
                   'createdAt': FieldValue.serverTimestamp(),
                 });
-
-                Navigator.pop(context); // tutup dialog
-                Navigator.pop(context); // tutup profil
-
+                Navigator.pop(context);
+                Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
                     content: Text('Laporan berhasil dikirim!'),
@@ -361,19 +374,14 @@ class _ProfilSheet extends StatelessWidget {
                 );
               } catch (e) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Gagal mengirim laporan: $e'),
-                    backgroundColor: Colors.red,
-                  ),
+                  SnackBar(content: Text('Gagal: $e'), backgroundColor: AppColors.error),
                 );
               }
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.error,
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
             child: const Text('Kirim laporan'),
           ),
@@ -389,222 +397,171 @@ class _ProfilSheet extends StatelessWidget {
     return StreamBuilder<DocumentSnapshot>(
       stream: FirebaseFirestore.instance.collection('users').doc(myUid).snapshots(),
       builder: (context, mySnap) {
-        final latestMyData =
-            mySnap.data?.data() as Map<String, dynamic>? ?? myData;
-
-        final myFollowing =
-            List<String>.from(latestMyData['following'] ?? []);
-        final myLiked =
-            List<String>.from(latestMyData['likedUsers'] ?? []);
-
+        final latestMyData = mySnap.data?.data() as Map<String, dynamic>? ?? myData;
+        final myFollowing = List<String>.from(latestMyData['following'] ?? []);
+        final myLiked = List<String>.from(latestMyData['likedUsers'] ?? []);
         final isFollowing = myFollowing.contains(otherId);
         final isLiked = myLiked.contains(otherId);
 
         return StreamBuilder<DocumentSnapshot>(
-          stream: FirebaseFirestore.instance
-              .collection('users')
-              .doc(otherId)
-              .snapshots(),
+          stream: FirebaseFirestore.instance.collection('users').doc(otherId).snapshots(),
           builder: (context, userSnap) {
-            final userData =
-                userSnap.data?.data() as Map<String, dynamic>? ?? u;
-
-            final followers =
-                List<String>.from(userData['followers'] ?? []);
-            final following =
-                List<String>.from(userData['following'] ?? []);
-            final likes =
-                List<String>.from(userData['likes'] ?? []);
-
-            final myMatches =
-                List<String>.from(latestMyData['matches'] ?? []);
+            final userData = userSnap.data?.data() as Map<String, dynamic>? ?? u;
+            final followers = List<String>.from(userData['followers'] ?? []);
+            final following = List<String>.from(userData['following'] ?? []);
+            final likes = List<String>.from(userData['likes'] ?? []);
+            final myMatches = List<String>.from(latestMyData['matches'] ?? []);
             final isMatched = myMatches.contains(otherId);
 
             return Container(
               decoration: const BoxDecoration(
-                color: AppColors.surface,
-                borderRadius:
-                    BorderRadius.vertical(top: Radius.circular(24)),
+                color: AppColors.card,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
               ),
               padding: const EdgeInsets.all(24),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Container(
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade300,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
+                    width: 40, height: 4,
+                    decoration: BoxDecoration(color: AppColors.border, borderRadius: BorderRadius.circular(2)),
                   ),
-
                   const SizedBox(height: 20),
-
                   Stack(
                     children: [
                       CircleAvatar(
                         radius: 40,
-                        backgroundColor:
-                            avatarColor.withOpacity(0.15),
-                        child: Text(
-                          userData['avatar'] ?? 'X',
-                          style: TextStyle(
-                            color: avatarColor,
-                            fontSize: 22,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
+                        backgroundColor: avatarColor.withOpacity(0.15),
+                        child: Text(userData['avatar'] ?? 'X',
+                            style: TextStyle(color: avatarColor, fontSize: 22, fontWeight: FontWeight.w700)),
                       ),
                       Positioned(
-                        right: 0,
-                        bottom: 0,
+                        right: 0, bottom: 0,
                         child: Container(
-                          width: 16,
-                          height: 16,
+                          width: 16, height: 16,
                           decoration: BoxDecoration(
                             color: userData['status'] == 'online'
                                 ? AppColors.success
                                 : userData['status'] == 'sibuk'
-                                    ? const Color(0xFFF59E0B)
-                                    : Colors.grey,
+                                    ? AppColors.warning
+                                    : AppColors.textHint,
                             shape: BoxShape.circle,
-                            border: Border.all(
-                                color: Colors.white, width: 2),
+                            border: Border.all(color: AppColors.card, width: 2),
                           ),
                         ),
                       ),
                     ],
                   ),
-
                   const SizedBox(height: 12),
-
-                  Text(
-                    userData['nama'] ?? '',
-                    style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w700),
-                  ),
-
+                  Text(userData['nama'] ?? '',
+                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
                   const SizedBox(height: 4),
-
-                  Text(
-                    userData['skill'] ?? '',
-                    style: const TextStyle(
-                        fontSize: 14,
-                        color: AppColors.textSecondary),
-                  ),
-
+                  Text(userData['skill'] ?? '',
+                      style: const TextStyle(fontSize: 14, color: AppColors.textSecondary)),
                   const SizedBox(height: 16),
-
                   Row(
-                    mainAxisAlignment:
-                        MainAxisAlignment.spaceAround,
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
                       _stat('${followers.length}', 'Followers'),
                       _stat('${following.length}', 'Following'),
                       _stat('${likes.length}', 'Likes'),
                     ],
                   ),
-
                   const SizedBox(height: 20),
-
                   Row(
                     children: [
                       Expanded(
                         child: OutlinedButton.icon(
-                          onPressed: () =>
-                              userService.toggleFollow(otherId),
-                          icon: Icon(
-                            isFollowing
-                                ? Icons.person_remove_outlined
-                                : Icons.person_add_outlined,
-                            size: 16,
+                          onPressed: () => userService.toggleFollow(otherId),
+                          icon: Icon(isFollowing ? Icons.person_remove_outlined : Icons.person_add_outlined, size: 16),
+                          label: Text(isFollowing ? 'Following' : '+ Follow'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppColors.primary,
+                            side: const BorderSide(color: AppColors.primary),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                           ),
-                          label: Text(
-                              isFollowing ? 'Following' : '+ Follow'),
                         ),
                       ),
                       const SizedBox(width: 10),
                       Expanded(
                         child: OutlinedButton.icon(
-                          onPressed: () =>
-                              userService.toggleLike(otherId),
+                          onPressed: () => userService.toggleLike(otherId),
                           icon: Icon(
-                            isLiked
-                                ? Icons.favorite
-                                : Icons.favorite_border,
+                            isLiked ? Icons.favorite : Icons.favorite_border,
                             size: 16,
-                            color: isLiked
-                                ? Colors.pink
-                                : AppColors.textSecondary,
+                            color: isLiked ? AppColors.pink : AppColors.textSecondary,
                           ),
-                          label:
-                              Text(isLiked ? 'Disukai' : 'Like'),
+                          label: Text(isLiked ? 'Disukai' : 'Like'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: isLiked ? AppColors.pink : AppColors.textSecondary,
+                            side: BorderSide(color: isLiked ? AppColors.pink : AppColors.border),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          ),
                         ),
                       ),
                     ],
                   ),
-
                   const SizedBox(height: 10),
-
                   SizedBox(
                     width: double.infinity,
-                    child: ElevatedButton.icon(
-                      onPressed: isMatched
-                          ? () {
-                              Navigator.pop(context);
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => ChatScreen(
-                                    user: {
-                                      ...userData,
-                                      'id': otherId
-                                    },
-                                  ),
-                                ),
-                              );
-                            }
-                          : () async {
-                              await userService.addMatch(otherId);
-                              ScaffoldMessenger.of(context)
-                                  .showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                      'Terhubung dengan ${userData['nama']}!'),
-                                  backgroundColor:
-                                      AppColors.success,
-                                ),
-                              );
-                            },
-                      icon: Icon(
-                        isMatched
-                            ? Icons.chat_bubble_outline_rounded
-                            : Icons.handshake_rounded,
-                        size: 16,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: isMatched ? null : AppColors.gradientPrimary,
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                      label: Text(isMatched
-                          ? 'Kirim pesan'
-                          : 'Connect & Chat'),
+                      child: ElevatedButton.icon(
+                        onPressed: isMatched
+                            ? () {
+                                Navigator.pop(context);
+                                Navigator.push(context,
+                                    MaterialPageRoute(builder: (_) => ChatScreen(user: {...userData, 'id': otherId})));
+                              }
+                            : () async {
+                                // 🔥 CEK SUSPEND
+                                final isSuspend = await _cekSuspend();
+                                if (isSuspend) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Kamu sedang disuspend, tidak bisa connect partner!'),
+                                      backgroundColor: Color(0xFFFBBF24),
+                                      behavior: SnackBarBehavior.floating,
+                                    ),
+                                  );
+                                  return;
+                                }
+                                await userService.addMatch(otherId);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Terhubung dengan ${userData['nama']}!'),
+                                    backgroundColor: AppColors.success,
+                                  ),
+                                );
+                              },
+                        icon: Icon(
+                          isMatched ? Icons.chat_bubble_outline_rounded : Icons.handshake_rounded,
+                          size: 16,
+                          color: Colors.white,
+                        ),
+                        label: Text(
+                          isMatched ? 'Kirim pesan' : 'Connect & Chat',
+                          style: const TextStyle(color: Colors.white),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: isMatched ? AppColors.primary : Colors.transparent,
+                          shadowColor: Colors.transparent,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                        ),
+                      ),
                     ),
                   ),
-
                   const SizedBox(height: 8),
-
-                  // 🔥 TOMBOL LAPOR FINAL
                   TextButton.icon(
                     onPressed: () => _laporkan(context),
                     icon: const Icon(Icons.flag_outlined, size: 16, color: AppColors.error),
-                    label: const Text(
-                      'Laporkan user ini',
-                      style: TextStyle(
-                        color: AppColors.error,
-                        fontSize: 13,
-                      ),
-                    ),
+                    label: const Text('Laporkan user ini',
+                        style: TextStyle(color: AppColors.error, fontSize: 13)),
                   ),
-
                   const SizedBox(height: 8),
                 ],
               ),
@@ -618,7 +575,7 @@ class _ProfilSheet extends StatelessWidget {
   Widget _stat(String num, String label) {
     return Column(
       children: [
-        Text(num, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+        Text(num, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
         Text(label, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
       ],
     );

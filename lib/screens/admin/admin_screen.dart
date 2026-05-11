@@ -11,12 +11,7 @@ class AdminScreen extends StatefulWidget {
 class _AdminScreenState extends State<AdminScreen> {
   int _currentIndex = 0;
   String _search = '';
-  String _filter = 'all'; // all | banned | suspend
-
-  Color _avatarColor(String av) {
-    const colors = [AppColors.primary, Color(0xFF10B981), Color(0xFFF59E0B), Color(0xFFEF4444), Color(0xFF8B5CF6), Color(0xFF06B6D4), Color(0xFFEC4899)];
-    return colors[av.hashCode % colors.length];
-  }
+  String _filter = 'all';
 
   @override
   Widget build(BuildContext context) {
@@ -24,8 +19,15 @@ class _AdminScreenState extends State<AdminScreen> {
       backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: AppColors.surface,
-        leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => Navigator.pop(context)),
-        title: const Text('Admin Dashboard', style: TextStyle(fontWeight: FontWeight.w700)),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: ShaderMask(
+          shaderCallback: (bounds) => AppColors.gradientPrimary.createShader(bounds),
+          child: const Text('Admin Dashboard',
+              style: TextStyle(fontWeight: FontWeight.w700, color: Colors.white)),
+        ),
       ),
       body: Column(
         children: [
@@ -62,241 +64,221 @@ class _AdminScreenState extends State<AdminScreen> {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 14),
           decoration: BoxDecoration(
-            border: Border(bottom: BorderSide(color: isOn ? AppColors.primary : Colors.transparent, width: 2)),
+            border: Border(
+              bottom: BorderSide(
+                color: isOn ? AppColors.primary : Colors.transparent,
+                width: 2,
+              ),
+            ),
           ),
-          child: Text(label, textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600,
-                  color: isOn ? AppColors.primary : AppColors.textSecondary)),
+          child: Text(label,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: isOn ? AppColors.primary : AppColors.textSecondary,
+              )),
         ),
       ),
     );
   }
 
   Widget _buildUsers() {
-  return StreamBuilder<QuerySnapshot>(
-    stream: FirebaseFirestore.instance.collection('users').snapshots(),
-    builder: (context, snapshot) {
-      if (snapshot.connectionState == ConnectionState.waiting) {
-        return const Center(child: CircularProgressIndicator());
-      }
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance.collection('users').snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator(color: AppColors.primary));
+        }
+        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          return const Center(
+            child: Text('Belum ada user', style: TextStyle(color: AppColors.textSecondary)),
+          );
+        }
 
-      final users = snapshot.data!.docs.map((d) {
-        final data = d.data() as Map<String, dynamic>;
+        final users = (snapshot.data?.docs ?? []).map((d) {
+          final data = d.data() as Map<String, dynamic>;
+          return {
+            'id': d.id,
+            'nama': data['nama'] ?? '',
+            'skill': data['skill'] ?? '',
+            'status': data['status'] ?? 'offline',
+            'matches': data['matches'] ?? [],
+            'banned': data['banned'] ?? false,
+          };
+        }).toList();
 
-        return {
-          'id': d.id,
-          'nama': data['nama'] ?? '',
-          'skill': data['skill'] ?? '',
-          'status': data['status'] ?? 'offline',
-          'matches': data['matches'] ?? [],
-          'banned': data['banned'] ?? false,
-        };
-      }).toList();
+        final online = users.where((u) => u['status'] == 'online').length;
+        final totalMatch = users.fold(0, (sum, u) => sum + ((u['matches'] as List?)?.length ?? 0));
 
-      final online =
-          users.where((u) => u['status'] == 'online').length;
-
-      final totalMatch = users.fold(
-          0, (sum, u) => sum + ((u['matches'] as List?)?.length ?? 0));
-
-      return SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            // ✅ STAT CARD BALIK
-            Row(
-              children: [
-                _statCard('${users.length}', 'Total User',
-                    Colors.blue.shade100, Colors.blue, Icons.people),
-                const SizedBox(width: 10),
-                _statCard('$online', 'Aktif',
-                    Colors.green.shade100, Colors.green, Icons.circle),
-                const SizedBox(width: 10),
-                _statCard('$totalMatch', 'Match',
-                    Colors.orange.shade100, Colors.orange, Icons.handshake),
-              ],
-            ),
-
-            const SizedBox(height: 16),
-
-            // ✅ LIST USER
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  _statCard('${users.length}', 'Total User', AppColors.primaryLight, AppColors.primary, Icons.people_rounded),
+                  const SizedBox(width: 10),
+                  _statCard('$online', 'Aktif', AppColors.successLight, AppColors.success, Icons.circle),
+                  const SizedBox(width: 10),
+                  _statCard('$totalMatch', 'Match', const Color(0x15FBBF24), AppColors.warning, Icons.handshake_rounded),
+                ],
               ),
-              child: Column(
-                children: users.map((u) {
-                  final uid = u['id'];
-
-                  return StreamBuilder<DocumentSnapshot>(
-                    stream: FirebaseFirestore.instance
-                        .collection('punishments')
-                        .doc(uid)
-                        .snapshots(),
-                    builder: (context, snap) {
-                      String status = '';
-                      bool isSuspend = false;
-
-                      if (snap.hasData && snap.data!.exists) {
-                        final p =
-                            snap.data!.data() as Map<String, dynamic>;
-
-                        if (p['type'] == 'suspend_chat') {
-                          final until =
-                              (p['until'] as Timestamp).toDate();
-                          if (DateTime.now().isBefore(until)) {
-                            status = 'SUSPEND';
-                            isSuspend = true;
-                          }
-                        }
-
-                        if (p['type'] == 'ban_permanent') {
-                          status = 'BANNED';
-                        }
-                      }
-
-                      return ListTile(
-                        title: Row(
-                          children: [
-                            Text(u['nama'] ?? ''),
-                            if (status.isNotEmpty) ...[
-                              const SizedBox(width: 6),
-                              Text(
-                                status,
-                                style: TextStyle(
-                                  color: isSuspend
-                                      ? Colors.orange
-                                      : Colors.red,
-                                  fontSize: 11,
+              const SizedBox(height: 16),
+              Container(
+                decoration: BoxDecoration(
+                  color: AppColors.card,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: Column(
+                  children: users.asMap().entries.map((entry) {
+                    final i = entry.key;
+                    final u = entry.value;
+                    final uid = u['id'];
+                    return Column(
+                      children: [
+                        StreamBuilder<DocumentSnapshot>(
+                          stream: FirebaseFirestore.instance
+                              .collection('punishments')
+                              .doc(uid)
+                              .snapshots(),
+                          builder: (context, snap) {
+                            String status = '';
+                            bool isSuspend = false;
+                            if (snap.hasData && snap.data!.exists) {
+                              final p = snap.data!.data() as Map<String, dynamic>;
+                              if (p['type'] == 'suspend_chat') {
+                                final until = (p['until'] as dynamic).toDate();
+                                if (DateTime.now().isBefore(until)) {
+                                  status = 'SUSPEND';
+                                  isSuspend = true;
+                                }
+                              }
+                              if (p['type'] == 'ban_permanent') status = 'BANNED';
+                            }
+                            return ListTile(
+                              leading: CircleAvatar(
+                                backgroundColor: AppColors.primaryLight,
+                                child: Text(
+                                  (u['nama'] as String).isNotEmpty
+                                      ? (u['nama'] as String)[0].toUpperCase()
+                                      : '?',
+                                  style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700),
                                 ),
-                              )
-                            ]
-                          ],
+                              ),
+                              title: Row(
+                                children: [
+                                  Text(u['nama'] ?? '',
+                                      style: const TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w600)),
+                                  if (status.isNotEmpty) ...[
+                                    const SizedBox(width: 6),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: isSuspend
+                                            ? const Color(0x15FBBF24)
+                                            : AppColors.errorLight,
+                                        borderRadius: BorderRadius.circular(20),
+                                      ),
+                                      child: Text(status,
+                                          style: TextStyle(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w700,
+                                            color: isSuspend ? AppColors.warning : AppColors.error,
+                                          )),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                              subtitle: Text(u['skill'] ?? '',
+                                  style: const TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+                              trailing: IconButton(
+                                icon: const Icon(Icons.more_vert, color: AppColors.textSecondary),
+                                onPressed: () => _showUserActions(context, u, isSuspend),
+                              ),
+                            );
+                          },
                         ),
-                        subtitle: Text(u['skill'] ?? ''),
-                        trailing: IconButton(
-                          icon: const Icon(Icons.more_vert),
-                          onPressed: () =>
-                              _showUserActions(context, u, isSuspend),
-                        ),
-                      );
-                    },
-                  );
-                }).toList(),
+                        if (i < users.length - 1)
+                          Divider(height: 1, color: AppColors.border),
+                      ],
+                    );
+                  }).toList(),
+                ),
               ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _showUserActions(BuildContext context, Map<String, dynamic> u, bool isSuspend) {
+    final uid = u['id'];
+    final isBanned = (u['banned'] ?? false) == true;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.card,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(width: 40, height: 4,
+                decoration: BoxDecoration(color: AppColors.border, borderRadius: BorderRadius.circular(2))),
+            const SizedBox(height: 16),
+            _actionTile(
+              icon: Icons.delete_rounded, iconColor: AppColors.error, bgColor: AppColors.errorLight,
+              title: 'Hapus User', subtitle: 'Data user akan dihapus permanen',
+              onTap: () { Navigator.pop(context); _showDeleteConfirm(uid, u['nama']); },
             ),
+            const SizedBox(height: 8),
+            if (!isSuspend) ...[
+              _actionTile(icon: Icons.timer_rounded, iconColor: AppColors.warning, bgColor: const Color(0x15FBBF24),
+                  title: 'Suspend 1 Hari', subtitle: '',
+                  onTap: () { Navigator.pop(context); _hukum(uid, u['nama'], 1); }),
+              const SizedBox(height: 8),
+              _actionTile(icon: Icons.timer_rounded, iconColor: AppColors.warning, bgColor: const Color(0x15FBBF24),
+                  title: 'Suspend 7 Hari', subtitle: '',
+                  onTap: () { Navigator.pop(context); _hukum(uid, u['nama'], 7); }),
+              const SizedBox(height: 8),
+              _actionTile(icon: Icons.timer_rounded, iconColor: AppColors.warning, bgColor: const Color(0x15FBBF24),
+                  title: 'Suspend 30 Hari', subtitle: '',
+                  onTap: () { Navigator.pop(context); _hukum(uid, u['nama'], 30); }),
+            ] else ...[
+              _actionTile(icon: Icons.lock_open_rounded, iconColor: AppColors.success, bgColor: AppColors.successLight,
+                  title: 'Cabut Suspend', subtitle: '',
+                  onTap: () { Navigator.pop(context); _unsuspend(uid, u['nama']); }),
+            ],
+            const SizedBox(height: 8),
+            _actionTile(
+              icon: isBanned ? Icons.lock_open_rounded : Icons.gavel_rounded,
+              iconColor: isBanned ? AppColors.success : AppColors.error,
+              bgColor: isBanned ? AppColors.successLight : AppColors.errorLight,
+              title: isBanned ? 'Unban' : 'Ban Permanen', subtitle: '',
+              onTap: () { Navigator.pop(context); _banPermanen(uid, u['nama'], !isBanned); },
+            ),
+            const SizedBox(height: 8),
           ],
         ),
-      );
-    },
-  );
-}
-
-  void _showUserActions(
-    BuildContext context, Map<String, dynamic> u, bool isSuspend) {
-  final uid = u['id'];
-  final isBanned = (u['banned'] ?? false) == true;
-
-  showModalBottomSheet(
-    context: context,
-    builder: (_) => Padding(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const SizedBox(height: 10),
-            _actionTile(
-              icon: Icons.delete,
-              iconColor: Colors.red,
-              bgColor: Colors.red.shade100,
-              title: 'Hapus User',
-              subtitle: 'Data user akan dihapus permanen',
-              onTap: () {
-                Navigator.pop(context);
-                _showDeleteConfirm(uid, u['nama']);
-              },
-            ),
-
-          // 🔥 SUSPEND OPTIONS
-          if (!isSuspend) ...[
-            _actionTile(
-              icon: Icons.timer,
-              iconColor: Colors.orange,
-              bgColor: Colors.orange.shade100,
-              title: 'Suspend 1 Hari',
-              subtitle: '',
-              onTap: () {
-                Navigator.pop(context);
-                _hukum(uid, u['nama'], 1);
-              },
-            ),
-            _actionTile(
-              icon: Icons.timer,
-              iconColor: Colors.orange,
-              bgColor: Colors.orange.shade100,
-              title: 'Suspend 7 Hari',
-              subtitle: '',
-              onTap: () {
-                Navigator.pop(context);
-                _hukum(uid, u['nama'], 7);
-              },
-            ),
-            _actionTile(
-              icon: Icons.timer,
-              iconColor: Colors.orange,
-              bgColor: Colors.orange.shade100,
-              title: 'Suspend 30 Hari',
-              subtitle: '',
-              onTap: () {
-                Navigator.pop(context);
-                _hukum(uid, u['nama'], 30);
-              },
-            ),
-          ] else ...[
-            _actionTile(
-              icon: Icons.lock_open,
-              iconColor: Colors.green,
-              bgColor: Colors.green.shade100,
-              title: 'Cabut Suspend',
-              subtitle: '',
-              onTap: () {
-                Navigator.pop(context);
-                _unsuspend(uid, u['nama']);
-              },
-            ),
-          ],
-
-          const SizedBox(height: 10),
-
-          // 🔥 BAN
-          _actionTile(
-            icon: isBanned ? Icons.lock_open : Icons.gavel,
-            iconColor: isBanned ? Colors.green : Colors.red,
-            bgColor:
-                isBanned ? Colors.green.shade100 : Colors.red.shade100,
-            title: isBanned ? 'Unban' : 'Ban Permanen',
-            subtitle: '',
-            onTap: () {
-              Navigator.pop(context);
-              _banPermanen(uid, u['nama'], !isBanned);
-            },
-          ),
-        ],
       ),
-    ),
-  );
-}
+    );
+  }
 
-  Widget _actionTile({required IconData icon, required Color iconColor, required Color bgColor, required String title, required String subtitle, required VoidCallback onTap}) {
+  Widget _actionTile({required IconData icon, required Color iconColor, required Color bgColor,
+      required String title, required String subtitle, required VoidCallback onTap}) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: AppColors.background,
+          color: AppColors.surface,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.grey.shade100),
+          border: Border.all(color: AppColors.border),
         ),
         child: Row(
           children: [
@@ -310,8 +292,9 @@ class _AdminScreenState extends State<AdminScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-                  Text(subtitle, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                  Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+                  if (subtitle.isNotEmpty)
+                    Text(subtitle, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
                 ],
               ),
             ),
@@ -323,45 +306,29 @@ class _AdminScreenState extends State<AdminScreen> {
   }
 
   Future<void> _hukum(String uid, String nama, int hari) async {
-    
     final until = DateTime.now().add(Duration(days: hari));
     await FirebaseFirestore.instance.collection('punishments').doc(uid).set({
-      'uid': uid,
-      'type': 'suspend_chat',
-      'until': Timestamp.fromDate(until),
-      'days': hari,
+      'uid': uid, 'type': 'suspend_chat',
+      'until': until, 'days': hari,
       'createdAt': FieldValue.serverTimestamp(),
     });
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('$nama disuspend chat $hari hari'),
-        backgroundColor: const Color(0xFFF59E0B),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      ),
+      SnackBar(content: Text('$nama disuspend $hari hari'), backgroundColor: AppColors.warning),
     );
   }
 
   Future<void> _unsuspend(String uid, String nama) async {
-      await FirebaseFirestore.instance
-          .collection('punishments')
-          .doc(uid)
-          .delete();
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('$nama sudah bisa chat lagi'),
-          backgroundColor: Colors.green,
-        ),
-      );
-    }
+    await FirebaseFirestore.instance.collection('punishments').doc(uid).delete();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('$nama sudah bisa chat lagi'), backgroundColor: AppColors.success),
+    );
+  }
 
   Future<void> _banPermanen(String uid, String nama, bool ban) async {
     await FirebaseFirestore.instance.collection('users').doc(uid).update({'banned': ban});
     if (ban) {
       await FirebaseFirestore.instance.collection('punishments').doc(uid).set({
-        'uid': uid,
-        'type': 'ban_permanent',
+        'uid': uid, 'type': 'ban_permanent',
         'createdAt': FieldValue.serverTimestamp(),
       });
     } else {
@@ -371,77 +338,52 @@ class _AdminScreenState extends State<AdminScreen> {
       SnackBar(
         content: Text(ban ? '$nama di-ban permanen' : 'Ban $nama dicabut'),
         backgroundColor: ban ? AppColors.error : AppColors.success,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
     );
   }
 
   Future<void> _hapusUser(String uid, String nama) async {
-  try {
-    // 🔥 hapus data user
-    await FirebaseFirestore.instance.collection('users').doc(uid).delete();
+    try {
+      await FirebaseFirestore.instance.collection('users').doc(uid).delete();
+      await FirebaseFirestore.instance.collection('punishments').doc(uid).delete();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('$nama berhasil dihapus'), backgroundColor: AppColors.error),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Gagal hapus: $e'), backgroundColor: AppColors.textSecondary),
+      );
+    }
+  }
 
-    // 🔥 hapus punishment kalau ada
-    await FirebaseFirestore.instance.collection('punishments').doc(uid).delete();
-
-    // 🔥 optional: hapus chat (kalau kamu punya collection chat)
-    // await FirebaseFirestore.instance.collection('chats').doc(uid).delete();
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('$nama berhasil dihapus'),
-        backgroundColor: Colors.red,
-      ),
-    );
-  } catch (e) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Gagal hapus user: $e'),
-        backgroundColor: Colors.grey,
+  void _showDeleteConfirm(String uid, String nama) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: AppColors.card,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Hapus User', style: TextStyle(color: AppColors.textPrimary)),
+        content: Text('Yakin mau hapus $nama?', style: const TextStyle(color: AppColors.textSecondary)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Batal', style: TextStyle(color: AppColors.textSecondary)),
+          ),
+          TextButton(
+            onPressed: () { Navigator.pop(context); _hapusUser(uid, nama); },
+            child: const Text('Hapus', style: TextStyle(color: AppColors.error)),
+          ),
+        ],
       ),
     );
   }
-}
-
-void _showDeleteConfirm(String uid, String nama) {
-  showDialog(
-    context: context,
-    builder: (_) => AlertDialog(
-      title: const Text('Hapus User'),
-      content: Text('Yakin mau hapus $nama?'),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Batal'),
-        ),
-        TextButton(
-          onPressed: () {
-            Navigator.pop(context);
-            _hapusUser(uid, nama);
-          },
-          child: const Text('Hapus', style: TextStyle(color: Colors.red)),
-        ),
-      ],
-    ),
-  );
-}
-
-Future<void> tambahProject(String uid) async {
-  await FirebaseFirestore.instance.collection('users').doc(uid).update({
-    'projects': FieldValue.arrayUnion([
-      {
-        'title': 'Aplikasi Flutter',
-        'desc': 'App matching partner',
-        'year': 2026,
-      }
-    ])
-  });
-}
 
   Widget _buildLaporan() {
     return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance.collection('reports').orderBy('createdAt', descending: true).snapshots(),
+      stream: FirebaseFirestore.instance
+          .collection('reports')
+          .orderBy('createdAt', descending: true)
+          .snapshots(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator(color: AppColors.primary));
@@ -454,7 +396,8 @@ Future<void> tambahProject(String uid) async {
               children: [
                 Icon(Icons.flag_outlined, size: 56, color: AppColors.textSecondary),
                 SizedBox(height: 12),
-                Text('Belum ada laporan', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                Text('Belum ada laporan',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
               ],
             ),
           );
@@ -465,14 +408,17 @@ Future<void> tambahProject(String uid) async {
           itemBuilder: (context, i) {
             final r = reports[i].data() as Map<String, dynamic>;
             final status = r['status'] ?? 'pending';
+            final isPending = status == 'pending';
             return Container(
               margin: const EdgeInsets.only(bottom: 12),
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: AppColors.surface,
+                color: AppColors.card,
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: status == 'pending' ? const Color(0xFFFEF3C7) : Colors.grey.shade100, width: status == 'pending' ? 1.5 : 1),
-                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8)],
+                border: Border.all(
+                  color: isPending ? AppColors.warning.withOpacity(0.4) : AppColors.border,
+                  width: isPending ? 1.5 : 1,
+                ),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -482,51 +428,53 @@ Future<void> tambahProject(String uid) async {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
-                          color: status == 'pending' ? const Color(0xFFFEF3C7) : AppColors.successLight,
+                          color: isPending ? const Color(0x15FBBF24) : AppColors.successLight,
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
-                          status == 'pending' ? 'Menunggu' : 'Ditangani',
-                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700,
-                              color: status == 'pending' ? const Color(0xFFF59E0B) : AppColors.success),
+                          isPending ? 'Menunggu' : 'Ditangani',
+                          style: TextStyle(
+                            fontSize: 11, fontWeight: FontWeight.w700,
+                            color: isPending ? AppColors.warning : AppColors.success,
+                          ),
                         ),
                       ),
                       const Spacer(),
-                      Text(_formatDate(r['createdAt']), style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                      Text(_formatDate(r['createdAt']),
+                          style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
                     ],
                   ),
                   const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      const Icon(Icons.person_outline_rounded, size: 14, color: AppColors.textSecondary),
-                      const SizedBox(width: 4),
-                      Text('Pelapor: ', style: const TextStyle(fontSize: 13, color: AppColors.textSecondary)),
-                      Text(r['reporterName'] ?? '-', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                    ],
-                  ),
+                  Row(children: [
+                    const Icon(Icons.person_outline_rounded, size: 14, color: AppColors.textSecondary),
+                    const SizedBox(width: 4),
+                    const Text('Pelapor: ', style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+                    Text(r['reporterName'] ?? '-',
+                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+                  ]),
                   const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      const Icon(Icons.flag_outlined, size: 14, color: AppColors.error),
-                      const SizedBox(width: 4),
-                      Text('Dilaporkan: ', style: const TextStyle(fontSize: 13, color: AppColors.textSecondary)),
-                      Text(r['reportedName'] ?? '-', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.error)),
-                    ],
-                  ),
+                  Row(children: [
+                    const Icon(Icons.flag_outlined, size: 14, color: AppColors.error),
+                    const SizedBox(width: 4),
+                    const Text('Dilaporkan: ', style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+                    Text(r['reportedName'] ?? '-',
+                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.error)),
+                  ]),
                   const SizedBox(height: 8),
                   Container(
                     padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(color: AppColors.background, borderRadius: BorderRadius.circular(8)),
+                    decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(8)),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Icon(Icons.chat_bubble_outline_rounded, size: 14, color: AppColors.textSecondary),
                         const SizedBox(width: 6),
-                        Expanded(child: Text(r['alasan'] ?? '-', style: const TextStyle(fontSize: 13, color: AppColors.textPrimary, height: 1.4))),
+                        Expanded(child: Text(r['alasan'] ?? '-',
+                            style: const TextStyle(fontSize: 13, color: AppColors.textPrimary, height: 1.4))),
                       ],
                     ),
                   ),
-                  if (status == 'pending') ...[
+                  if (isPending) ...[
                     const SizedBox(height: 12),
                     Row(
                       children: [
@@ -550,7 +498,7 @@ Future<void> tambahProject(String uid) async {
                               final reportedName = r['reportedName'] ?? '';
                               if (reportedUid.isNotEmpty) {
                                 await _tandaiSelesai(reports[i].id);
-                                _showUserActionsFromReport(context, reportedUid, reportedName);
+                                _showUserActions(context, {'id': reportedUid, 'nama': reportedName, 'banned': false}, false);
                               }
                             },
                             style: ElevatedButton.styleFrom(
@@ -574,14 +522,6 @@ Future<void> tambahProject(String uid) async {
     );
   }
 
-  void _showUserActionsFromReport(BuildContext context, String uid, String nama) {
-  _showUserActions(
-    context,
-    {'id': uid, 'nama': nama, 'banned': false},
-    false,
-    );
-  }
-
   Future<void> _tandaiSelesai(String reportId) async {
     await FirebaseFirestore.instance.collection('reports').doc(reportId).update({'status': 'handled'});
   }
@@ -589,14 +529,15 @@ Future<void> tambahProject(String uid) async {
   String _formatDate(dynamic timestamp) {
     if (timestamp == null) return '';
     try {
-      final dt = (timestamp as Timestamp).toDate();
+      final dt = (timestamp as dynamic).toDate();
       return '${dt.day}/${dt.month}/${dt.year}';
     } catch (_) { return ''; }
   }
 
   Widget _buildStats() {
     return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance.collection('users').where('isProfileComplete', isEqualTo: true).snapshots(),
+      stream: FirebaseFirestore.instance.collection('users')
+          .where('isProfileComplete', isEqualTo: true).snapshots(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator(color: AppColors.primary));
@@ -622,14 +563,15 @@ Future<void> tambahProject(String uid) async {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: AppColors.surface,
+                  color: AppColors.card,
                   borderRadius: BorderRadius.circular(16),
-                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10)],
+                  border: Border.all(color: AppColors.border),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Skill paling banyak digunakan', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+                    const Text('Skill paling banyak digunakan',
+                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
                     const SizedBox(height: 16),
                     if (top5.isEmpty)
                       const Text('Belum ada data', style: TextStyle(color: AppColors.textSecondary))
@@ -641,7 +583,7 @@ Future<void> tambahProject(String uid) async {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Text(e.key, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                                Text(e.key, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: AppColors.textPrimary)),
                                 Text('${e.value}', style: const TextStyle(fontSize: 13, color: AppColors.textSecondary)),
                               ],
                             ),
@@ -650,7 +592,7 @@ Future<void> tambahProject(String uid) async {
                               borderRadius: BorderRadius.circular(6),
                               child: LinearProgressIndicator(
                                 value: e.value / maxVal,
-                                backgroundColor: Colors.grey.shade100,
+                                backgroundColor: AppColors.border,
                                 valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primary),
                                 minHeight: 8,
                               ),
@@ -665,7 +607,7 @@ Future<void> tambahProject(String uid) async {
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(colors: [AppColors.primary, Color(0xFF818CF8)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+                  gradient: AppColors.gradientPrimary,
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Row(
@@ -675,8 +617,10 @@ Future<void> tambahProject(String uid) async {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('$totalMatch', style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w800, color: Colors.white)),
-                        const Text('Total match berhasil', style: TextStyle(fontSize: 13, color: Colors.white70)),
+                        Text('$totalMatch',
+                            style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w800, color: Colors.white)),
+                        const Text('Total match berhasil',
+                            style: TextStyle(fontSize: 13, color: Colors.white70)),
                       ],
                     ),
                   ],
@@ -690,171 +634,160 @@ Future<void> tambahProject(String uid) async {
   }
 
   Widget _buildPunished() {
-  return StreamBuilder<QuerySnapshot>(
-    stream: FirebaseFirestore.instance.collection('punishments').snapshots(),
-    builder: (context, snapshot) {
-      if (!snapshot.hasData) {
-        return const Center(child: CircularProgressIndicator());
-      }
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance.collection('punishments').snapshots(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const Center(child: CircularProgressIndicator(color: AppColors.primary));
+        }
+        final docs = snapshot.data!.docs;
+        final filteredDocs = docs.where((d) {
+          final data = d.data() as Map<String, dynamic>;
+          final type = data['type'] ?? '';
+          if (_filter == 'banned' && type != 'ban_permanent') return false;
+          if (_filter == 'suspend' && type != 'suspend_chat') return false;
+          return true;
+        }).toList();
 
-      final docs = snapshot.data!.docs;
-
-      // 🔍 FILTER + SEARCH
-      final filteredDocs = docs.where((d) {
-        final data = d.data() as Map<String, dynamic>;
-        final type = data['type'] ?? '';
-
-        if (_filter == 'banned' && type != 'ban_permanent') return false;
-        if (_filter == 'suspend' && type != 'suspend_chat') return false;
-
-        return true;
-      }).toList();
-
-      return Column(
-        children: [
-
-          // 🔍 SEARCH
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: TextField(
-              decoration: InputDecoration(
-                hintText: 'Cari username...',
-                prefixIcon: const Icon(Icons.search),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
+        return Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: TextField(
+                style: const TextStyle(color: AppColors.textPrimary),
+                decoration: InputDecoration(
+                  hintText: 'Cari username...',
+                  prefixIcon: const Icon(Icons.search, color: AppColors.textSecondary),
+                  filled: true,
+                  fillColor: AppColors.card,
                 ),
+                onChanged: (val) => setState(() => _search = val.toLowerCase()),
               ),
-              onChanged: (val) {
-                setState(() {
-                  _search = val.toLowerCase();
-                });
-              },
             ),
-          ),
-
-          // 🔘 FILTER
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              _filterBtn('Semua', 'all'),
-              _filterBtn('Banned', 'banned'),
-              _filterBtn('Suspend', 'suspend'),
-            ],
-          ),
-
-          const SizedBox(height: 10),
-
-          // 📜 LIST
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.all(16),
-              children: filteredDocs.map((d) {
-                final data = d.data() as Map<String, dynamic>;
-                final uid = data['uid'];
-                final type = data['type'];
-
-                return FutureBuilder<DocumentSnapshot>(
-                  future: FirebaseFirestore.instance
-                      .collection('users')
-                      .doc(uid)
-                      .get(),
-                  builder: (context, userSnap) {
-                    if (!userSnap.hasData) return const SizedBox();
-
-                    final u = userSnap.data!.data() as Map<String, dynamic>;
-                    final nama = (u['nama'] ?? '-').toString();
-
-                    // 🔍 SEARCH FILTER
-                    if (_search.isNotEmpty &&
-                        !nama.toLowerCase().contains(_search)) {
-                      return const SizedBox();
-                    }
-
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 10),
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            type == 'ban_permanent'
-                                ? Icons.block
-                                : Icons.timer,
-                            color: type == 'ban_permanent'
-                                ? Colors.red
-                                : Colors.orange,
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(nama,
-                                    style: const TextStyle(
-                                        fontWeight: FontWeight.w600)),
-                                Text(
-                                  type == 'ban_permanent'
-                                      ? 'BANNED'
-                                      : 'SUSPEND',
-                                  style: TextStyle(
-                                    color: type == 'ban_permanent'
-                                        ? Colors.red
-                                        : Colors.orange,
-                                    fontSize: 12,
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                _filterBtn('Semua', 'all'),
+                _filterBtn('Banned', 'banned'),
+                _filterBtn('Suspend', 'suspend'),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.all(16),
+                children: filteredDocs.map((d) {
+                  final data = d.data() as Map<String, dynamic>;
+                  final uid = data['uid'];
+                  final type = data['type'];
+                  return FutureBuilder<DocumentSnapshot>(
+                    future: FirebaseFirestore.instance.collection('users').doc(uid).get(),
+                    builder: (context, userSnap) {
+                      if (!userSnap.hasData) return const SizedBox();
+                      final u = userSnap.data!.data() as Map<String, dynamic>;
+                      final nama = (u['nama'] ?? '-').toString();
+                      if (_search.isNotEmpty && !nama.toLowerCase().contains(_search)) {
+                        return const SizedBox();
+                      }
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 10),
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: AppColors.card,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: AppColors.border),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 36, height: 36,
+                              decoration: BoxDecoration(
+                                color: type == 'ban_permanent' ? AppColors.errorLight : const Color(0x15FBBF24),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Icon(
+                                type == 'ban_permanent' ? Icons.block_rounded : Icons.timer_rounded,
+                                color: type == 'ban_permanent' ? AppColors.error : AppColors.warning,
+                                size: 18,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(nama,
+                                      style: const TextStyle(fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+                                  Container(
+                                    margin: const EdgeInsets.only(top: 3),
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: type == 'ban_permanent' ? AppColors.errorLight : const Color(0x15FBBF24),
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                    child: Text(
+                                      type == 'ban_permanent' ? 'BANNED' : 'SUSPEND',
+                                      style: TextStyle(
+                                        fontSize: 10, fontWeight: FontWeight.w700,
+                                        color: type == 'ban_permanent' ? AppColors.error : AppColors.warning,
+                                      ),
+                                    ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.settings),
-                            onPressed: () => _showUserActions(
-                              context,
-                              {
-                                'id': uid,
-                                'nama': nama,
-                                'banned': type == 'ban_permanent'
-                              },
-                              type == 'suspend_chat',
+                            IconButton(
+                              icon: const Icon(Icons.settings_rounded, color: AppColors.textSecondary),
+                              onPressed: () => _showUserActions(context,
+                                  {'id': uid, 'nama': nama, 'banned': type == 'ban_permanent'},
+                                  type == 'suspend_chat'),
                             ),
-                          )
-                        ],
-                      ),
-                    );
-                  },
-                );
-              }).toList(),
+                          ],
+                        ),
+                      );
+                    },
+                  );
+                }).toList(),
+              ),
             ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _filterBtn(String label, String val) {
+    final isActive = _filter == val;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 6),
+      child: GestureDetector(
+        onTap: () => setState(() => _filter = val),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          decoration: BoxDecoration(
+            color: isActive ? AppColors.primaryLight : AppColors.card,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: isActive ? AppColors.primary : AppColors.border),
           ),
-        ],
-      );
-    },
-  );
-}
-
-Widget _filterBtn(String label, String val) {
-  final isActive = _filter == val;
-
-  return Padding(
-    padding: const EdgeInsets.symmetric(horizontal: 6),
-    child: ElevatedButton(
-      onPressed: () => setState(() => _filter = val),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: isActive ? Colors.blue : Colors.grey.shade300,
+          child: Text(label,
+              style: TextStyle(
+                fontSize: 13, fontWeight: FontWeight.w600,
+                color: isActive ? AppColors.primary : AppColors.textSecondary,
+              )),
+        ),
       ),
-      child: Text(label),
-    ),
-  );
-}
+    );
+  }
 
   Widget _statCard(String num, String label, Color bg, Color fg, IconData icon) {
     return Expanded(
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 16),
-        decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(14)),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: fg.withOpacity(0.2)),
+        ),
         child: Column(
           children: [
             Icon(icon, color: fg, size: 20),

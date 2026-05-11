@@ -37,12 +37,11 @@ class _ChatScreenState extends State<ChatScreen> {
     super.dispose();
   }
 
-  // 🔥 UPDATED FUNCTION (CEK PUNISHMENT)
   Future<void> _kirimPesan() async {
     final txt = _msgController.text.trim();
     if (txt.isEmpty) return;
 
-    // 🔥 CEK PUNISHMENT
+    // 🔥 CEK PUNISHMENT DULU SEBELUM CLEAR
     final punishDoc = await FirebaseFirestore.instance
         .collection('punishments')
         .doc(_myUid)
@@ -51,8 +50,8 @@ class _ChatScreenState extends State<ChatScreen> {
     if (punishDoc.exists) {
       final data = punishDoc.data()!;
 
-      // ❌ BAN PERMANEN
       if (data['type'] == 'ban_permanent') {
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Akun kamu di-ban permanen oleh admin'),
@@ -63,26 +62,22 @@ class _ChatScreenState extends State<ChatScreen> {
         return;
       }
 
-      // ⚠️ SUSPEND CHAT
       if (data['type'] == 'suspend_chat') {
         final until = (data['until'] as Timestamp).toDate();
-
         if (DateTime.now().isBefore(until)) {
           final sisa = until.difference(DateTime.now());
           final sisaHari = sisa.inDays;
           final sisaJam = sisa.inHours % 24;
-
+          if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(
-                  'Chat kamu disuspend. Sisa: $sisaHari hari $sisaJam jam'),
-              backgroundColor: const Color(0xFFF59E0B),
+              content: Text('Chat kamu disuspend. Sisa: $sisaHari hari $sisaJam jam'),
+              backgroundColor: AppColors.warning,
               behavior: SnackBarBehavior.floating,
             ),
           );
           return;
         } else {
-          // ✅ SUDAH SELESAI → HAPUS
           await FirebaseFirestore.instance
               .collection('punishments')
               .doc(_myUid)
@@ -91,7 +86,7 @@ class _ChatScreenState extends State<ChatScreen> {
       }
     }
 
-    // ✅ KIRIM PESAN
+    // ✅ BARU CLEAR DAN KIRIM
     _msgController.clear();
     await _userService.sendMessage(_otherUid, txt);
 
@@ -109,12 +104,12 @@ class _ChatScreenState extends State<ChatScreen> {
   Color _avatarColor(String av) {
     const colors = [
       AppColors.primary,
-      Color(0xFF10B981),
-      Color(0xFFF59E0B),
-      Color(0xFFEF4444),
+      AppColors.success,
+      AppColors.warning,
+      AppColors.error,
       Color(0xFF8B5CF6),
-      Color(0xFF06B6D4),
-      Color(0xFFEC4899)
+      AppColors.secondary,
+      AppColors.pink,
     ];
     return colors[av.hashCode % colors.length];
   }
@@ -129,8 +124,9 @@ class _ChatScreenState extends State<ChatScreen> {
       backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: AppColors.surface,
+        elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, size: 18),
+          icon: const Icon(Icons.arrow_back_ios_new, size: 18, color: AppColors.textPrimary),
           onPressed: () => Navigator.pop(context),
         ),
         title: Row(
@@ -147,17 +143,17 @@ class _ChatScreenState extends State<ChatScreen> {
                           fontWeight: FontWeight.w700)),
                 ),
                 Positioned(
-                  right: 0,
-                  bottom: 0,
+                  right: 0, bottom: 0,
                   child: Container(
-                    width: 10,
-                    height: 10,
+                    width: 10, height: 10,
                     decoration: BoxDecoration(
                       color: u['status'] == 'online'
                           ? AppColors.success
-                          : Colors.grey,
+                          : u['status'] == 'sibuk'
+                              ? AppColors.warning
+                              : AppColors.textHint,
                       shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white, width: 1.5),
+                      border: Border.all(color: AppColors.surface, width: 1.5),
                     ),
                   ),
                 ),
@@ -173,12 +169,18 @@ class _ChatScreenState extends State<ChatScreen> {
                         fontWeight: FontWeight.w600,
                         color: AppColors.textPrimary)),
                 Text(
-                  u['status'] == 'online' ? 'Online' : u['skill'] ?? '',
+                  u['status'] == 'online'
+                      ? 'Online'
+                      : u['status'] == 'sibuk'
+                          ? 'Sibuk'
+                          : u['skill'] ?? '',
                   style: TextStyle(
                       fontSize: 11,
                       color: u['status'] == 'online'
                           ? AppColors.success
-                          : AppColors.textSecondary),
+                          : u['status'] == 'sibuk'
+                              ? AppColors.warning
+                              : AppColors.textSecondary),
                 ),
               ],
             ),
@@ -196,44 +198,71 @@ class _ChatScreenState extends State<ChatScreen> {
                   .orderBy('createdAt', descending: false)
                   .snapshots(),
               builder: (context, snapshot) {
-                if (snapshot.connectionState ==
-                    ConnectionState.waiting) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(
-                      child: CircularProgressIndicator(
-                          color: AppColors.primary));
+                      child: CircularProgressIndicator(color: AppColors.primary));
                 }
 
                 final msgs = snapshot.data?.docs ?? [];
 
+                if (msgs.isEmpty) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(
+                          width: 64, height: 64,
+                          decoration: BoxDecoration(
+                            color: AppColors.primaryLight,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.chat_bubble_outline_rounded,
+                              color: AppColors.primary, size: 28),
+                        ),
+                        const SizedBox(height: 12),
+                        const Text('Belum ada pesan',
+                            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+                        const SizedBox(height: 4),
+                        const Text('Mulai percakapan sekarang!',
+                            style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+                      ],
+                    ),
+                  );
+                }
+
                 return ListView.builder(
                   controller: _scrollController,
-                  padding:
-                      const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
                   itemCount: msgs.length,
                   itemBuilder: (context, i) {
-                    final m =
-                        msgs[i].data() as Map<String, dynamic>;
+                    final m = msgs[i].data() as Map<String, dynamic>;
                     final isMe = m['from'] == _myUid;
 
                     return Align(
-                      alignment: isMe
-                          ? Alignment.centerRight
-                          : Alignment.centerLeft,
+                      alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
                       child: Container(
                         margin: const EdgeInsets.only(bottom: 8),
-                        padding: const EdgeInsets.all(12),
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        constraints: BoxConstraints(
+                          maxWidth: MediaQuery.of(context).size.width * 0.72,
+                        ),
                         decoration: BoxDecoration(
-                          color: isMe
-                              ? AppColors.primary
-                              : AppColors.surface,
-                          borderRadius: BorderRadius.circular(12),
+                          gradient: isMe ? AppColors.gradientPrimary : null,
+                          color: isMe ? null : AppColors.card,
+                          borderRadius: BorderRadius.only(
+                            topLeft: const Radius.circular(16),
+                            topRight: const Radius.circular(16),
+                            bottomLeft: Radius.circular(isMe ? 16 : 4),
+                            bottomRight: Radius.circular(isMe ? 4 : 16),
+                          ),
+                          border: isMe ? null : Border.all(color: AppColors.border),
                         ),
                         child: Text(
                           m['text'] ?? '',
                           style: TextStyle(
-                            color: isMe
-                                ? Colors.white
-                                : AppColors.textPrimary,
+                            fontSize: 14,
+                            color: isMe ? Colors.white : AppColors.textPrimary,
+                            height: 1.4,
                           ),
                         ),
                       ),
@@ -244,24 +273,46 @@ class _ChatScreenState extends State<ChatScreen> {
             ),
           ),
 
-          // 🔥 INPUT
+          // Input bar
           Container(
-            padding:
-                const EdgeInsets.fromLTRB(16, 8, 16, 12),
+            padding: const EdgeInsets.fromLTRB(16, 8, 12, 16),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              border: Border(top: BorderSide(color: AppColors.border)),
+            ),
             child: Row(
               children: [
                 Expanded(
-                  child: TextField(
-                    controller: _msgController,
-                    onSubmitted: (_) => _kirimPesan(),
-                    decoration: const InputDecoration(
-                      hintText: 'Tulis pesan...',
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: AppColors.card,
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    child: TextField(
+                      controller: _msgController,
+                      onSubmitted: (_) => _kirimPesan(),
+                      style: const TextStyle(color: AppColors.textPrimary, fontSize: 14),
+                      decoration: const InputDecoration(
+                        hintText: 'Tulis pesan...',
+                        hintStyle: TextStyle(color: AppColors.textHint, fontSize: 14),
+                        border: InputBorder.none,
+                        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      ),
                     ),
                   ),
                 ),
-                IconButton(
-                  icon: const Icon(Icons.send),
-                  onPressed: _kirimPesan,
+                const SizedBox(width: 8),
+                GestureDetector(
+                  onTap: _kirimPesan,
+                  child: Container(
+                    width: 44, height: 44,
+                    decoration: BoxDecoration(
+                      gradient: AppColors.gradientPrimary,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.send_rounded, color: Colors.white, size: 18),
+                  ),
                 ),
               ],
             ),
