@@ -139,7 +139,7 @@ class _ProfilScreenState extends State<ProfilScreen> {
     );
   }
 
-  void _showPeopleList(String tipe, List<String> uids) async {
+  void _showPeopleList(String tipe, List<String> uids) {
     if (uids.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -149,11 +149,7 @@ class _ProfilScreenState extends State<ProfilScreen> {
       );
       return;
     }
-    final snap = await FirebaseFirestore.instance
-        .collection('users')
-        .where(FieldPath.documentId, whereIn: uids)
-        .get();
-    final people = snap.docs.map((d) => {'id': d.id, ...d.data()}).toList();
+
     final title = tipe == 'Followers'
         ? 'Followers kamu'
         : tipe == 'Following'
@@ -162,59 +158,97 @@ class _ProfilScreenState extends State<ProfilScreen> {
 
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (_) => Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const SizedBox(height: 12),
-          Container(
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: Colors.grey.shade300,
-              borderRadius: BorderRadius.circular(2),
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => Container(
+        decoration: const BoxDecoration(
+          color: AppColors.card,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40, height: 4,
+              decoration: BoxDecoration(
+                color: AppColors.border,
+                borderRadius: BorderRadius.circular(2),
+              ),
             ),
-          ),
-          const SizedBox(height: 16),
-          Text(title,
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-          const Divider(),
-          Flexible(
-            child: ListView.builder(
-              shrinkWrap: true,
-              itemCount: people.length,
-              itemBuilder: (_, i) {
-                final p = people[i];
-                final av = p['avatar'] ?? 'X';
-                final avColor = _avatarColor(av);
-                final photoUrl = p['photoUrl']?.toString() ?? '';
-                return ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor: avColor.withOpacity(0.15),
-                    backgroundImage:
-                        photoUrl.isNotEmpty ? NetworkImage(photoUrl) : null,
-                    child: photoUrl.isEmpty
-                        ? Text(av,
-                            style: TextStyle(
-                                color: avColor,
-                                fontWeight: FontWeight.w700,
-                                fontSize: 13))
-                        : null,
-                  ),
-                  title: Text(p['nama'] ?? '',
-                      style: const TextStyle(
-                          fontWeight: FontWeight.w600, fontSize: 14)),
-                  subtitle: Text(p['skill'] ?? '',
-                      style: const TextStyle(fontSize: 12)),
+            const SizedBox(height: 16),
+            Text(title,
+                style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary)),
+            const Divider(color: AppColors.border, height: 24),
+
+            // 🔥 REALTIME pakai StreamBuilder
+            StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('users')
+                  .where(FieldPath.documentId, whereIn: uids)
+                  .snapshots(),
+              builder: (context, snap) {
+                if (snap.connectionState == ConnectionState.waiting) {
+                  return const Padding(
+                    padding: EdgeInsets.all(24),
+                    child: Center(child: CircularProgressIndicator(color: AppColors.primary)),
+                  );
+                }
+                final people = snap.data?.docs
+                    .map((d) => {'id': d.id, ...d.data() as Map<String, dynamic>})
+                    .toList() ?? [];
+
+                if (people.isEmpty) {
+                  return Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Text('Belum ada $tipe',
+                        style: const TextStyle(color: AppColors.textSecondary)),
+                  );
+                }
+
+                return ListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: people.length,
+                  itemBuilder: (_, i) {
+                    final p = people[i];
+                    final av = p['avatar']?.toString() ?? 'X';
+                    final avColor = _avatarColor(av);
+                    final photoUrl = p['photoUrl']?.toString() ?? '';
+                    return ListTile(
+                      leading: CircleAvatar(
+                        backgroundColor: avColor.withOpacity(0.15),
+                        backgroundImage: photoUrl.isNotEmpty
+                            ? NetworkImage(photoUrl)
+                            : null,
+                        child: photoUrl.isEmpty
+                            ? Text(av,
+                                style: TextStyle(
+                                    color: avColor,
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 13))
+                            : null,
+                      ),
+                      title: Text(p['nama'] ?? '',
+                          style: const TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                              color: AppColors.textPrimary)),
+                      subtitle: Text(p['skill'] ?? '',
+                          style: const TextStyle(
+                              fontSize: 12,
+                              color: AppColors.textSecondary)),
+                    );
+                  },
                 );
               },
             ),
-          ),
-          const SizedBox(height: 16),
-        ],
+            const SizedBox(height: 16),
+          ],
+        ),
       ),
     );
   }

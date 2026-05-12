@@ -174,8 +174,13 @@ class _JelajahScreenState extends State<JelajahScreen> {
                                                 CircleAvatar(
                                                   radius: 24,
                                                   backgroundColor: avColor.withOpacity(0.15),
-                                                  child: Text(u['avatar'] ?? 'X',
-                                                      style: TextStyle(color: avColor, fontWeight: FontWeight.w700, fontSize: 14)),
+                                                  backgroundImage: (u['photoUrl'] ?? '').isNotEmpty
+                                                      ? NetworkImage(u['photoUrl'])
+                                                      : null,
+                                                  child: (u['photoUrl'] ?? '').isEmpty
+                                                      ? Text(u['avatar'] ?? 'X',
+                                                          style: TextStyle(color: avColor, fontWeight: FontWeight.w700, fontSize: 14))
+                                                      : null,
                                                 ),
                                                 Positioned(
                                                   right: 0, bottom: 0,
@@ -432,8 +437,13 @@ class _ProfilSheet extends StatelessWidget {
                       CircleAvatar(
                         radius: 40,
                         backgroundColor: avatarColor.withOpacity(0.15),
-                        child: Text(userData['avatar'] ?? 'X',
-                            style: TextStyle(color: avatarColor, fontSize: 22, fontWeight: FontWeight.w700)),
+                        backgroundImage: (userData['photoUrl'] ?? '').isNotEmpty
+                            ? NetworkImage(userData['photoUrl'])
+                            : null,
+                        child: (userData['photoUrl'] ?? '').isEmpty
+                            ? Text(userData['avatar'] ?? 'X',
+                                style: TextStyle(color: avatarColor, fontSize: 22, fontWeight: FontWeight.w700))
+                            : null,
                       ),
                       Positioned(
                         right: 0, bottom: 0,
