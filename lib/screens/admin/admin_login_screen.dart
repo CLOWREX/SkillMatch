@@ -34,7 +34,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
 
   void _checkPin() {
     final entered = _pin.join();
-    if (entered == '1234') {
+    if (entered == '1111') {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (_) => const AdminScreen()),

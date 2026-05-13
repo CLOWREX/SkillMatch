@@ -536,8 +536,7 @@ class _AdminScreenState extends State<AdminScreen> {
 
   Widget _buildStats() {
     return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance.collection('users')
-          .where('isProfileComplete', isEqualTo: true).snapshots(),
+      stream: FirebaseFirestore.instance.collection('users').snapshots(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator(color: AppColors.primary));

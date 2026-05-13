@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../core/theme.dart';
+import '../../services/user_service.dart';
+import '../chat/chat_screen.dart';
 
 class CariScreen extends StatefulWidget {
   const CariScreen({super.key});
@@ -18,6 +20,7 @@ class _CariScreenState extends State<CariScreen> with SingleTickerProviderStateM
   bool _showResult = false;
   late AnimationController _animController;
   late Animation<double> _fadeAnim;
+  final _userService = UserService();
 
   final List<String> _skills = [
     'Ngoding (Web/App)', 'Desain UI/UX', 'Editing Video',
@@ -482,7 +485,6 @@ class _CariScreenState extends State<CariScreen> with SingleTickerProviderStateM
                         ),
                         child: ElevatedButton.icon(
                           onPressed: () async {
-                            // 🔥 CEK SUSPEND
                             final isSuspend = await _cekSuspend();
                             if (!mounted) return;
                             if (isSuspend) {
@@ -498,16 +500,16 @@ class _CariScreenState extends State<CariScreen> with SingleTickerProviderStateM
                             final myUid = FirebaseAuth.instance.currentUser?.uid;
                             if (myUid == null) return;
                             final partnerId = u['id'].toString();
-                            await FirebaseFirestore.instance
-                                .collection('users')
-                                .doc(myUid)
-                                .update({'matches': FieldValue.arrayUnion([partnerId])});
+
+                            // 🔥 addMatch ke kedua sisi + buat chat room
+                            await _userService.addMatch(partnerId);
                             if (!mounted) return;
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('Terhubung dengan ${u['nama']}!'),
-                                backgroundColor: AppColors.success,
-                                behavior: SnackBarBehavior.floating,
+
+                            // 🔥 Langsung masuk ke chat
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => ChatScreen(user: {...u, 'id': partnerId}),
                               ),
                             );
                           },
