@@ -11,7 +11,7 @@ class RegisterScreen extends StatefulWidget {
 }
 
 class _RegisterScreenState extends State<RegisterScreen> {
-  // Step: 0 = form isi data, 1 = OTP verification
+  // Step: 0 = form isi data, 1 = OTP
   int _step = 0;
 
   final _namaController     = TextEditingController();
@@ -20,10 +20,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _phoneController    = TextEditingController();
   final _otpController      = TextEditingController();
 
-  bool _isLoading       = false;
-  bool _obscurePassword = true;
-  String _verificationId = '';
-  String _formattedPhone = '';
+  bool   _isLoading       = false;
+  bool   _obscurePassword = true;
+  String _formattedPhone  = '';
 
   final _authService = AuthService();
 
@@ -37,15 +36,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     super.dispose();
   }
 
-  // ── FORMAT NOMOR HP ──────────────────────────────────
-  String _formatPhone(String raw) {
-    String cleaned = raw.replaceAll(RegExp(r'\D'), '');
-    if (cleaned.startsWith('0')) cleaned = '62${cleaned.substring(1)}';
-    if (!cleaned.startsWith('62')) cleaned = '62$cleaned';
-    return '+$cleaned';
-  }
-
-  // ── STEP 1: Kirim OTP ────────────────────────────────
+  // ── STEP 1: Validasi & kirim OTP via WA ──────────────
   Future<void> _kirimOtp() async {
     final nama     = _namaController.text.trim();
     final email    = _emailController.text.trim();
@@ -65,37 +56,34 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return;
     }
 
-    _formattedPhone = _formatPhone(phone);
+    _formattedPhone = _authService.formatPhone(phone);
 
-    // Cek banned phone sebelum kirim OTP
+    setState(() => _isLoading = true);
+
+    // Cek banned phone
     final banned = await _authService.isPhoneBanned(_formattedPhone);
     if (!mounted) return;
     if (banned) {
+      setState(() => _isLoading = false);
       _snack('Nomor HP ini telah di-ban oleh admin.', isError: true);
       return;
     }
 
-    setState(() => _isLoading = true);
+    // Kirim OTP via WhatsApp
+    final error = await _authService.sendOtpWhatsapp(phone);
+    if (!mounted) return;
 
-    await _authService.sendOtp(
-      phone: _formattedPhone,
-      onCodeSent: (verificationId) {
-        if (!mounted) return;
-        setState(() {
-          _verificationId = verificationId;
-          _isLoading      = false;
-          _step           = 1;
-        });
-      },
-      onError: (err) {
-        if (!mounted) return;
-        setState(() => _isLoading = false);
-        _snack(err, isError: true);
-      },
-    );
+    setState(() => _isLoading = false);
+
+    if (error != null) {
+      _snack(error, isError: true);
+    } else {
+      setState(() => _step = 1);
+      _snack('Kode OTP dikirim ke WhatsApp kamu!');
+    }
   }
 
-  // ── STEP 2: Verifikasi OTP lalu Register ────────────
+  // ── STEP 2: Verifikasi OTP lalu register ─────────────
   Future<void> _verifyAndRegister() async {
     final otp = _otpController.text.trim();
     if (otp.length != 6) {
@@ -105,9 +93,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     setState(() => _isLoading = true);
 
-    // Verifikasi OTP dulu
-    final otpError = await _authService.verifyOtp(_verificationId, otp);
-
+    // Verifikasi OTP
+    final otpError = await _authService.verifyOtp(
+      _phoneController.text.trim(),
+      otp,
+    );
     if (!mounted) return;
 
     if (otpError != null) {
@@ -121,9 +111,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
       _namaController.text,
       _emailController.text,
       _passwordController.text,
-      _formattedPhone,
+      _phoneController.text,
     );
-
     if (!mounted) return;
     setState(() => _isLoading = false);
 
@@ -140,7 +129,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   void _snack(String msg, {bool isError = false}) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(msg),
-      backgroundColor: isError ? AppColors.error : null,
+      backgroundColor: isError ? AppColors.error : AppColors.success,
     ));
   }
 
@@ -167,7 +156,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ),
               const SizedBox(height: 24),
 
-              // Title
               ShaderMask(
                 shaderCallback: (b) => AppColors.gradientPrimary.createShader(b),
                 child: const Text('SkillMatch',
@@ -175,22 +163,22 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ),
               const SizedBox(height: 6),
               Text(
-                _step == 0 ? 'Buat akun baru' : 'Verifikasi nomor HP',
+                _step == 0 ? 'Buat akun baru' : 'Verifikasi WhatsApp',
                 style: TextStyle(fontSize: 15, color: context.textSecondary),
               ),
-              const SizedBox(height: 48),
+              const SizedBox(height: 32),
 
               // Step indicator
               Row(
                 children: [
                   _stepDot(0),
-                  Expanded(child: Container(height: 2, color: _step >= 1 ? AppColors.primary : context.borderColor)),
+                  Expanded(child: Container(height: 2,
+                      color: _step >= 1 ? AppColors.primary : context.borderColor)),
                   _stepDot(1),
                 ],
               ),
               const SizedBox(height: 32),
 
-              // Content
               AnimatedSwitcher(
                 duration: const Duration(milliseconds: 300),
                 child: _step == 0 ? _buildFormStep() : _buildOtpStep(),
@@ -204,8 +192,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
-  Widget _stepDot(int stepIdx) {
-    final isActive = _step >= stepIdx;
+  Widget _stepDot(int idx) {
+    final isActive = _step >= idx;
     return Container(
       width: 28, height: 28,
       decoration: BoxDecoration(
@@ -214,24 +202,21 @@ class _RegisterScreenState extends State<RegisterScreen> {
         border: Border.all(color: isActive ? AppColors.primary : context.borderColor),
       ),
       child: Center(
-        child: Text(
-          '${stepIdx + 1}',
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w700,
-            color: isActive ? Colors.white : context.textSecondary,
-          ),
-        ),
+        child: Text('${idx + 1}',
+            style: TextStyle(
+              fontSize: 13, fontWeight: FontWeight.w700,
+              color: isActive ? Colors.white : context.textSecondary,
+            )),
       ),
     );
   }
 
+  // ── FORM STEP ────────────────────────────────────────
   Widget _buildFormStep() {
     return Column(
       key: const ValueKey('form'),
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Nama
         _label('Nama lengkap'),
         const SizedBox(height: 8),
         TextField(
@@ -241,13 +226,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
             hintText: 'Nama unik kamu',
             hintStyle: TextStyle(color: context.textHint),
             prefixIcon: Icon(Icons.person_outline_rounded, color: context.textHint, size: 20),
-            filled: true,
-            fillColor: context.cardColor,
+            filled: true, fillColor: context.cardColor,
           ),
         ),
         const SizedBox(height: 16),
 
-        // Email
         _label('Email'),
         const SizedBox(height: 8),
         TextField(
@@ -258,14 +241,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
             hintText: 'email@gmail.com',
             hintStyle: TextStyle(color: context.textHint),
             prefixIcon: Icon(Icons.mail_outline_rounded, color: context.textHint, size: 20),
-            filled: true,
-            fillColor: context.cardColor,
+            filled: true, fillColor: context.cardColor,
           ),
         ),
         const SizedBox(height: 16),
 
-        // Nomor HP
-        _label('Nomor HP'),
+        _label('Nomor WhatsApp'),
         const SizedBox(height: 8),
         TextField(
           controller: _phoneController,
@@ -273,23 +254,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
           inputFormatters: [FilteringTextInputFormatter.digitsOnly],
           style: TextStyle(color: context.textPrimary),
           decoration: InputDecoration(
-            hintText: 'Contoh: 08123456789',
+            hintText: '08xxxxxxxxxx',
             hintStyle: TextStyle(color: context.textHint),
-            prefixIcon: Icon(Icons.phone_outlined, color: context.textHint, size: 20),
-            prefixText: '+62 ',
-            prefixStyle: TextStyle(color: context.textSecondary, fontSize: 14),
-            filled: true,
-            fillColor: context.cardColor,
+            prefixIcon: Icon(Icons.phone_android_rounded, color: Colors.green, size: 20),
+            filled: true, fillColor: context.cardColor,
           ),
         ),
         const SizedBox(height: 4),
         Text(
-          'Nomor HP dipakai untuk verifikasi & ban jika melanggar.',
+          'Kode OTP akan dikirim ke WhatsApp nomor ini.',
           style: TextStyle(fontSize: 11, color: context.textHint),
         ),
         const SizedBox(height: 16),
 
-        // Password
         _label('Password'),
         const SizedBox(height: 8),
         TextField(
@@ -300,8 +277,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             hintText: 'Min. 6 karakter',
             hintStyle: TextStyle(color: context.textHint),
             prefixIcon: Icon(Icons.lock_outline_rounded, color: context.textHint, size: 20),
-            filled: true,
-            fillColor: context.cardColor,
+            filled: true, fillColor: context.cardColor,
             suffixIcon: IconButton(
               icon: Icon(
                 _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
@@ -313,9 +289,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
         ),
         const SizedBox(height: 32),
 
-        // Tombol lanjut
         _gradientButton(
-          label: 'Lanjut & Kirim OTP',
+          label: 'Kirim OTP via WhatsApp',
           icon: Icons.send_rounded,
           onTap: _isLoading ? null : _kirimOtp,
           isLoading: _isLoading,
@@ -341,27 +316,30 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
+  // ── OTP STEP ─────────────────────────────────────────
   Widget _buildOtpStep() {
     return Column(
       key: const ValueKey('otp'),
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Info
+        // Info WA
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: AppColors.primaryLight,
+            color: const Color(0x1525D366),
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+            border: Border.all(color: const Color(0x4025D366)),
           ),
           child: Row(
             children: [
-              const Icon(Icons.sms_rounded, color: AppColors.primary, size: 20),
+              const Icon(Icons.chat_bubble_rounded, color: Color(0xFF25D366), size: 24),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  'Kode OTP dikirim ke\n$_formattedPhone',
-                  style: const TextStyle(fontSize: 13, color: AppColors.primary, height: 1.5),
+                  'Kode OTP dikirim ke WhatsApp\n+${_authService.formatPhone(_phoneController.text)}',
+                  style: const TextStyle(
+                    fontSize: 13, color: Color(0xFF25D366), height: 1.5,
+                  ),
                 ),
               ),
             ],
@@ -379,15 +357,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
           textAlign: TextAlign.center,
           style: TextStyle(
             color: context.textPrimary,
-            fontSize: 28,
+            fontSize: 32,
             fontWeight: FontWeight.w700,
-            letterSpacing: 12,
+            letterSpacing: 16,
           ),
           decoration: InputDecoration(
             hintText: '------',
-            hintStyle: TextStyle(color: context.textHint, fontSize: 28, letterSpacing: 12),
-            filled: true,
-            fillColor: context.cardColor,
+            hintStyle: TextStyle(
+              color: context.textHint, fontSize: 32, letterSpacing: 16,
+            ),
+            filled: true, fillColor: context.cardColor,
             counterText: '',
           ),
         ),
@@ -401,28 +380,33 @@ class _RegisterScreenState extends State<RegisterScreen> {
         ),
         const SizedBox(height: 16),
 
-        Center(
-          child: TextButton.icon(
-            onPressed: _isLoading ? null : () => setState(() { _step = 0; _otpController.clear(); }),
-            icon: Icon(Icons.arrow_back_rounded, size: 16, color: context.textSecondary),
-            label: Text('Ganti nomor HP', style: TextStyle(color: context.textSecondary)),
-          ),
-        ),
-        const SizedBox(height: 8),
-        Center(
-          child: TextButton(
-            onPressed: _isLoading ? null : _kirimOtp,
-            child: const Text('Kirim ulang OTP', style: TextStyle(color: AppColors.primary)),
-          ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            TextButton.icon(
+              onPressed: _isLoading ? null : () => setState(() {
+                _step = 0;
+                _otpController.clear();
+              }),
+              icon: Icon(Icons.arrow_back_rounded, size: 16, color: context.textSecondary),
+              label: Text('Ganti nomor', style: TextStyle(color: context.textSecondary)),
+            ),
+            Text('·', style: TextStyle(color: context.textHint)),
+            TextButton(
+              onPressed: _isLoading ? null : _kirimOtp,
+              child: const Text('Kirim ulang OTP',
+                  style: TextStyle(color: AppColors.primary)),
+            ),
+          ],
         ),
       ],
     );
   }
 
-  Widget _label(String text) => Text(
-        text,
-        style: TextStyle(fontSize: 13, color: context.textSecondary, fontWeight: FontWeight.w500),
-      );
+  Widget _label(String text) => Text(text,
+      style: TextStyle(
+        fontSize: 13, color: context.textSecondary, fontWeight: FontWeight.w500,
+      ));
 
   Widget _gradientButton({
     required String label,
@@ -431,8 +415,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     required bool isLoading,
   }) {
     return SizedBox(
-      width: double.infinity,
-      height: 52,
+      width: double.infinity, height: 52,
       child: DecoratedBox(
         decoration: BoxDecoration(
           gradient: AppColors.gradientPrimary,
@@ -443,9 +426,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
           icon: isLoading
               ? const SizedBox(width: 20, height: 20,
                   child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-              : Icon(icon, color: Colors.white, size: 18),
+              : Icon(icon, color: Colors.white, size: 20),
           label: Text(label,
-              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Colors.white)),
+              style: const TextStyle(
+                fontSize: 15, fontWeight: FontWeight.w600, color: Colors.white,
+              )),
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.transparent,
             shadowColor: Colors.transparent,
