@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:provider/provider.dart';
 import '../../core/theme.dart';
+import '../../core/theme_provider.dart';
 import '../../services/auth_service.dart';
 import 'dart:io';
 import 'dart:convert';
@@ -81,40 +83,29 @@ class _ProfilScreenState extends State<ProfilScreen> {
       imageQuality: 85,
     );
     if (picked == null) return;
-
     setState(() => _isUploadingPhoto = true);
-
     final url = await _uploadImage(File(picked.path));
-
     if (url != null) {
       await FirebaseFirestore.instance
           .collection('users')
           .doc(_myUid)
-          .set({'photoUrl': url}, SetOptions(merge: true)); // ✅ FIX
+          .set({'photoUrl': url}, SetOptions(merge: true));
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Foto profil berhasil diperbarui!'),
-          backgroundColor: AppColors.success,
-        ),
+        const SnackBar(content: Text('Foto profil berhasil diperbarui!'), backgroundColor: AppColors.success),
       );
     } else {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Gagal upload foto, coba lagi.'),
-          backgroundColor: AppColors.error,
-        ),
+        const SnackBar(content: Text('Gagal upload foto, coba lagi.'), backgroundColor: AppColors.error),
       );
     }
-
     setState(() => _isUploadingPhoto = false);
   }
 
   Future<void> _simpanProfil(Map<String, dynamic> currentData) async {
     setState(() => _isSaving = true);
-    await FirebaseFirestore.instance
-        .collection('users')
-        .doc(_myUid)
-        .set({ // ✅ FIX
+    await FirebaseFirestore.instance.collection('users').doc(_myUid).set({
       'nama': _namaController.text.trim(),
       'skill': _selectedSkill,
       'skill2': _selectedSkill2,
@@ -131,25 +122,19 @@ class _ProfilScreenState extends State<ProfilScreen> {
       _isSaving = false;
       _isEditing = false;
     });
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Profil berhasil disimpan!'),
-        backgroundColor: AppColors.success,
-      ),
+      const SnackBar(content: Text('Profil berhasil disimpan!'), backgroundColor: AppColors.success),
     );
   }
 
   void _showPeopleList(String tipe, List<String> uids) {
     if (uids.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Belum ada $tipe'),
-          backgroundColor: AppColors.textSecondary,
-        ),
+        SnackBar(content: Text('Belum ada $tipe'), backgroundColor: AppColors.textSecondary),
       );
       return;
     }
-
     final title = tipe == 'Followers'
         ? 'Followers kamu'
         : tipe == 'Following'
@@ -178,13 +163,8 @@ class _ProfilScreenState extends State<ProfilScreen> {
             ),
             const SizedBox(height: 16),
             Text(title,
-                style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.textPrimary)),
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
             const Divider(color: AppColors.border, height: 24),
-
-            // 🔥 REALTIME pakai StreamBuilder
             StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance
                   .collection('users')
@@ -200,7 +180,6 @@ class _ProfilScreenState extends State<ProfilScreen> {
                 final people = snap.data?.docs
                     .map((d) => {'id': d.id, ...d.data() as Map<String, dynamic>})
                     .toList() ?? [];
-
                 if (people.isEmpty) {
                   return Padding(
                     padding: const EdgeInsets.all(24),
@@ -208,7 +187,6 @@ class _ProfilScreenState extends State<ProfilScreen> {
                         style: const TextStyle(color: AppColors.textSecondary)),
                   );
                 }
-
                 return ListView.builder(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
@@ -221,26 +199,15 @@ class _ProfilScreenState extends State<ProfilScreen> {
                     return ListTile(
                       leading: CircleAvatar(
                         backgroundColor: avColor.withOpacity(0.15),
-                        backgroundImage: photoUrl.isNotEmpty
-                            ? NetworkImage(photoUrl)
-                            : null,
+                        backgroundImage: photoUrl.isNotEmpty ? NetworkImage(photoUrl) : null,
                         child: photoUrl.isEmpty
-                            ? Text(av,
-                                style: TextStyle(
-                                    color: avColor,
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 13))
+                            ? Text(av, style: TextStyle(color: avColor, fontWeight: FontWeight.w700, fontSize: 13))
                             : null,
                       ),
                       title: Text(p['nama'] ?? '',
-                          style: const TextStyle(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 14,
-                              color: AppColors.textPrimary)),
+                          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: AppColors.textPrimary)),
                       subtitle: Text(p['skill'] ?? '',
-                          style: const TextStyle(
-                              fontSize: 12,
-                              color: AppColors.textSecondary)),
+                          style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
                     );
                   },
                 );
@@ -259,17 +226,12 @@ class _ProfilScreenState extends State<ProfilScreen> {
       backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: AppColors.surface,
-        title:
-            const Text('Profil', style: TextStyle(fontWeight: FontWeight.w700)),
+        title: const Text('Profil', style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
         actions: [
           StreamBuilder<DocumentSnapshot>(
-            stream: FirebaseFirestore.instance
-                .collection('users')
-                .doc(_myUid)
-                .snapshots(),
+            stream: FirebaseFirestore.instance.collection('users').doc(_myUid).snapshots(),
             builder: (context, snapshot) {
-              final data =
-                  snapshot.data?.data() as Map<String, dynamic>?;
+              final data = snapshot.data?.data() as Map<String, dynamic>?;
               return TextButton(
                 onPressed: () {
                   if (_isEditing) {
@@ -284,8 +246,7 @@ class _ProfilScreenState extends State<ProfilScreen> {
                 },
                 child: Text(
                   _isEditing ? 'Simpan' : 'Edit',
-                  style: const TextStyle(
-                      color: AppColors.primary, fontWeight: FontWeight.w600),
+                  style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600),
                 ),
               );
             },
@@ -293,14 +254,10 @@ class _ProfilScreenState extends State<ProfilScreen> {
         ],
       ),
       body: StreamBuilder<DocumentSnapshot>(
-        stream: FirebaseFirestore.instance
-            .collection('users')
-            .doc(_myUid)
-            .snapshots(),
+        stream: FirebaseFirestore.instance.collection('users').doc(_myUid).snapshots(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(
-                child: CircularProgressIndicator(color: AppColors.primary));
+            return const Center(child: CircularProgressIndicator(color: AppColors.primary));
           }
           if (!snapshot.hasData || !snapshot.data!.exists) {
             return const Center(child: Text('Data tidak ditemukan'));
@@ -322,8 +279,7 @@ class _ProfilScreenState extends State<ProfilScreen> {
           if (!_isEditing) {
             _namaController.text = nama;
             _bioController.text = bio;
-            if (_selectedSkill.isEmpty)
-              _selectedSkill = skill.isNotEmpty ? skill : _skills[0];
+            if (_selectedSkill.isEmpty) _selectedSkill = skill.isNotEmpty ? skill : _skills[0];
             if (_selectedSkill2.isEmpty) _selectedSkill2 = skill2;
           }
 
@@ -337,165 +293,110 @@ class _ProfilScreenState extends State<ProfilScreen> {
                   decoration: BoxDecoration(
                     color: AppColors.surface,
                     borderRadius: BorderRadius.circular(20),
-                    boxShadow: [
-                      BoxShadow(
-                          color: Colors.black.withOpacity(0.05), blurRadius: 10)
-                    ],
+                    border: Border.all(color: AppColors.border),
+                    boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)],
                   ),
                   child: Column(
                     children: [
-                      // ── Avatar dengan tombol ganti foto ──
+                      // Avatar
                       GestureDetector(
                         onTap: _isUploadingPhoto ? null : _gantiFotoProfil,
                         child: Stack(
                           alignment: Alignment.center,
                           children: [
                             Container(
-                              width: 88,
-                              height: 88,
+                              width: 88, height: 88,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
                                 gradient: photoUrl.isEmpty
                                     ? LinearGradient(
-                                        colors: [
-                                          avColor.withOpacity(0.3),
-                                          avColor.withOpacity(0.1)
-                                        ],
+                                        colors: [avColor.withOpacity(0.3), avColor.withOpacity(0.1)],
                                         begin: Alignment.topLeft,
                                         end: Alignment.bottomRight,
                                       )
                                     : null,
-                                border: Border.all(
-                                    color: AppColors.primary.withOpacity(0.3),
-                                    width: 2),
+                                border: Border.all(color: AppColors.primary.withOpacity(0.3), width: 2),
                               ),
                               child: ClipOval(
                                 child: photoUrl.isNotEmpty
                                     ? Image.network(
                                         photoUrl,
                                         fit: BoxFit.cover,
-                                        loadingBuilder:
-                                            (context, child, loadingProgress) {
-                                          if (loadingProgress == null)
-                                            return child;
+                                        loadingBuilder: (context, child, progress) {
+                                          if (progress == null) return child;
                                           return Container(
-                                            color: Colors.grey.shade100,
-                                            child: const Center(
-                                              child: CircularProgressIndicator(
-                                                  strokeWidth: 2,
-                                                  color: AppColors.primary),
-                                            ),
+                                            color: AppColors.card,
+                                            child: const Center(child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary)),
                                           );
                                         },
                                         errorBuilder: (_, __, ___) => Center(
-                                          child: Text(av,
-                                              style: TextStyle(
-                                                  color: avColor,
-                                                  fontSize: 26,
-                                                  fontWeight: FontWeight.w800)),
+                                          child: Text(av, style: TextStyle(color: avColor, fontSize: 26, fontWeight: FontWeight.w800)),
                                         ),
                                       )
                                     : Center(
-                                        child: Text(av,
-                                            style: TextStyle(
-                                                color: avColor,
-                                                fontSize: 26,
-                                                fontWeight: FontWeight.w800)),
+                                        child: Text(av, style: TextStyle(color: avColor, fontSize: 26, fontWeight: FontWeight.w800)),
                                       ),
                               ),
                             ),
                             if (_isUploadingPhoto)
                               Container(
-                                width: 88,
-                                height: 88,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: Colors.black.withOpacity(0.4),
-                                ),
-                                child: const Center(
-                                  child: CircularProgressIndicator(
-                                      color: Colors.white, strokeWidth: 2),
-                                ),
+                                width: 88, height: 88,
+                                decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.black.withOpacity(0.4)),
+                                child: const Center(child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)),
                               ),
                             if (!_isUploadingPhoto)
                               Positioned(
-                                bottom: 0,
-                                right: 0,
+                                bottom: 0, right: 0,
                                 child: Container(
-                                  width: 26,
-                                  height: 26,
+                                  width: 26, height: 26,
                                   decoration: BoxDecoration(
                                     color: AppColors.primary,
                                     shape: BoxShape.circle,
-                                    border: Border.all(
-                                        color: Colors.white, width: 2),
+                                    border: Border.all(color: AppColors.surface, width: 2),
                                   ),
-                                  child: const Icon(Icons.camera_alt_rounded,
-                                      size: 13, color: Colors.white),
+                                  child: const Icon(Icons.camera_alt_rounded, size: 13, color: Colors.white),
                                 ),
                               ),
                           ],
                         ),
                       ),
                       const SizedBox(height: 8),
-                      Text(
-                        'Tap untuk ganti foto',
-                        style: TextStyle(
-                            fontSize: 11,
-                            color: AppColors.primary.withOpacity(0.7)),
-                      ),
+                      Text('Tap untuk ganti foto',
+                          style: TextStyle(fontSize: 11, color: AppColors.primary.withOpacity(0.7))),
                       const SizedBox(height: 8),
                       Text(nama,
-                          style: const TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.textPrimary)),
+                          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
                       const SizedBox(height: 4),
                       if (skill.isNotEmpty)
                         Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 4),
-                          decoration: BoxDecoration(
-                              color: AppColors.primaryLight,
-                              borderRadius: BorderRadius.circular(20)),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                          decoration: BoxDecoration(color: AppColors.primaryLight, borderRadius: BorderRadius.circular(20)),
                           child: Text(skill,
-                              style: const TextStyle(
-                                  fontSize: 12,
-                                  color: AppColors.primary,
-                                  fontWeight: FontWeight.w600)),
+                              style: const TextStyle(fontSize: 12, color: AppColors.primary, fontWeight: FontWeight.w600)),
                         ),
                       const SizedBox(height: 16),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceAround,
                         children: [
                           GestureDetector(
-                              onTap: () =>
-                                  _showPeopleList('Followers', followers),
-                              child: _statCol('${followers.length}', 'Followers',
-                                  AppColors.primary)),
+                              onTap: () => _showPeopleList('Followers', followers),
+                              child: _statCol('${followers.length}', 'Followers', AppColors.primary)),
                           GestureDetector(
-                              onTap: () =>
-                                  _showPeopleList('Following', following),
-                              child: _statCol('${following.length}', 'Following',
-                                  AppColors.secondary)),
+                              onTap: () => _showPeopleList('Following', following),
+                              child: _statCol('${following.length}', 'Following', AppColors.secondary)),
                           GestureDetector(
                               onTap: () => _showPeopleList('Likes', likes),
-                              child: _statCol(
-                                  '${likes.length}', 'Likes', Colors.pink)),
-                          _statCol(
-                              '${matches.length}', 'Match', AppColors.success),
+                              child: _statCol('${likes.length}', 'Likes', AppColors.pink)),
+                          _statCol('${matches.length}', 'Match', AppColors.success),
                         ],
                       ),
                       if (bio.isNotEmpty) ...[
                         const SizedBox(height: 12),
-                        const Divider(),
+                        const Divider(color: AppColors.border),
                         const SizedBox(height: 8),
                         Text(bio,
                             textAlign: TextAlign.center,
-                            style: const TextStyle(
-                                fontSize: 13,
-                                color: AppColors.textSecondary,
-                                height: 1.6)),
+                            style: const TextStyle(fontSize: 13, color: AppColors.textSecondary, height: 1.6)),
                       ],
                     ],
                   ),
@@ -508,174 +409,168 @@ class _ProfilScreenState extends State<ProfilScreen> {
                   decoration: BoxDecoration(
                     color: AppColors.surface,
                     borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                          color: Colors.black.withOpacity(0.04), blurRadius: 8)
-                    ],
+                    border: Border.all(color: AppColors.border),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
+                      const Row(
                         children: [
-                          const Icon(Icons.edit_outlined,
-                              size: 16, color: AppColors.textSecondary),
-                          const SizedBox(width: 6),
-                          const Text('Edit Profil',
-                              style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppColors.textSecondary)),
+                          Icon(Icons.edit_outlined, size: 16, color: AppColors.textSecondary),
+                          SizedBox(width: 6),
+                          Text('Edit Profil',
+                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textSecondary)),
                         ],
                       ),
                       const SizedBox(height: 14),
-                      const Text('Nama',
-                          style: TextStyle(
-                              fontSize: 12, color: AppColors.textSecondary)),
+
+                      // Nama
+                      const Text('Nama', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
                       const SizedBox(height: 6),
                       TextField(
                         controller: _namaController,
                         enabled: _isEditing,
+                        style: const TextStyle(color: AppColors.textPrimary),
                         decoration: InputDecoration(
                           filled: true,
-                          fillColor: _isEditing
-                              ? Colors.white
-                              : AppColors.background,
-                          border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              borderSide:
-                                  BorderSide(color: Colors.grey.shade200)),
-                          enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              borderSide:
-                                  BorderSide(color: Colors.grey.shade200)),
-                          contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 10),
+                          fillColor: _isEditing ? AppColors.card : AppColors.background,
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.border)),
+                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.border)),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                         ),
                       ),
                       const SizedBox(height: 12),
-                      const Text('Skill utama',
-                          style: TextStyle(
-                              fontSize: 12, color: AppColors.textSecondary)),
+
+                      // Skill utama
+                      const Text('Skill utama', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
                       const SizedBox(height: 6),
                       DropdownButtonFormField<String>(
-                        value: _selectedSkill.isNotEmpty &&
-                                _skills.contains(_selectedSkill)
-                            ? _selectedSkill
-                            : _skills[0],
+                        value: _selectedSkill.isNotEmpty && _skills.contains(_selectedSkill) ? _selectedSkill : _skills[0],
+                        dropdownColor: AppColors.card,
+                        style: const TextStyle(color: AppColors.textPrimary, fontSize: 14, fontFamily: 'Poppins'),
                         decoration: InputDecoration(
                           filled: true,
-                          fillColor: _isEditing
-                              ? Colors.white
-                              : AppColors.background,
-                          border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              borderSide:
-                                  BorderSide(color: Colors.grey.shade200)),
-                          enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              borderSide:
-                                  BorderSide(color: Colors.grey.shade200)),
-                          contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 8),
+                          fillColor: _isEditing ? AppColors.card : AppColors.background,
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.border)),
+                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.border)),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                         ),
-                        items: _skills
-                            .map((s) => DropdownMenuItem(
-                                value: s,
-                                child: Text(s,
-                                    style: const TextStyle(fontSize: 14))))
-                            .toList(),
-                        onChanged: _isEditing
-                            ? (v) => setState(() => _selectedSkill = v!)
-                            : null,
+                        items: _skills.map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
+                        onChanged: _isEditing ? (v) => setState(() => _selectedSkill = v!) : null,
                       ),
                       const SizedBox(height: 12),
-                      const Text('Skill tambahan',
-                          style: TextStyle(
-                              fontSize: 12, color: AppColors.textSecondary)),
+
+                      // Skill tambahan
+                      const Text('Skill tambahan', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
                       const SizedBox(height: 6),
                       DropdownButtonFormField<String>(
-                        value: _selectedSkill2.isNotEmpty &&
-                                _skills.contains(_selectedSkill2)
-                            ? _selectedSkill2
-                            : null,
-                        hint: const Text('-- Opsional --',
-                            style: TextStyle(fontSize: 14)),
+                        value: _selectedSkill2.isNotEmpty && _skills.contains(_selectedSkill2) ? _selectedSkill2 : null,
+                        hint: const Text('-- Opsional --', style: TextStyle(color: AppColors.textHint, fontSize: 14)),
+                        dropdownColor: AppColors.card,
+                        style: const TextStyle(color: AppColors.textPrimary, fontSize: 14, fontFamily: 'Poppins'),
                         decoration: InputDecoration(
                           filled: true,
-                          fillColor: _isEditing
-                              ? Colors.white
-                              : AppColors.background,
-                          border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              borderSide:
-                                  BorderSide(color: Colors.grey.shade200)),
-                          enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              borderSide:
-                                  BorderSide(color: Colors.grey.shade200)),
-                          contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 8),
+                          fillColor: _isEditing ? AppColors.card : AppColors.background,
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.border)),
+                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.border)),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                         ),
-                        items: _skills
-                            .map((s) => DropdownMenuItem(
-                                value: s,
-                                child: Text(s,
-                                    style: const TextStyle(fontSize: 14))))
-                            .toList(),
-                        onChanged: _isEditing
-                            ? (v) => setState(() => _selectedSkill2 = v ?? '')
-                            : null,
+                        items: _skills.map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
+                        onChanged: _isEditing ? (v) => setState(() => _selectedSkill2 = v ?? '') : null,
                       ),
                       const SizedBox(height: 12),
-                      const Text('Bio',
-                          style: TextStyle(
-                              fontSize: 12, color: AppColors.textSecondary)),
+
+                      // Bio
+                      const Text('Bio', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
                       const SizedBox(height: 6),
                       TextField(
                         controller: _bioController,
                         enabled: _isEditing,
                         maxLines: 3,
+                        style: const TextStyle(color: AppColors.textPrimary),
                         decoration: InputDecoration(
                           filled: true,
-                          fillColor: _isEditing
-                              ? Colors.white
-                              : AppColors.background,
-                          border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              borderSide:
-                                  BorderSide(color: Colors.grey.shade200)),
-                          enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              borderSide:
-                                  BorderSide(color: Colors.grey.shade200)),
+                          fillColor: _isEditing ? AppColors.card : AppColors.background,
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.border)),
+                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.border)),
                           contentPadding: const EdgeInsets.all(12),
                         ),
                       ),
+
                       if (_isEditing) ...[
                         const SizedBox(height: 16),
                         SizedBox(
                           width: double.infinity,
                           height: 48,
                           child: ElevatedButton(
-                            onPressed:
-                                _isSaving ? null : () => _simpanProfil(data),
+                            onPressed: _isSaving ? null : () => _simpanProfil(data),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppColors.primary,
                               foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12)),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                             ),
                             child: _isSaving
-                                ? const CircularProgressIndicator(
-                                    color: Colors.white)
-                                : const Text('Simpan profil',
-                                    style: TextStyle(
-                                        fontWeight: FontWeight.w600)),
+                                ? const CircularProgressIndicator(color: Colors.white)
+                                : const Text('Simpan profil', style: TextStyle(fontWeight: FontWeight.w600)),
                           ),
                         ),
                       ],
+
                       const SizedBox(height: 12),
+
+                      // 🔥 TOGGLE DARK/LIGHT MODE
+                      Consumer<ThemeProvider>(
+                        builder: (context, themeProvider, _) => GestureDetector(
+                          onTap: () => themeProvider.toggleTheme(),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                            decoration: BoxDecoration(
+                              color: AppColors.card,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: AppColors.border),
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 36, height: 36,
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primaryLight,
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: Icon(
+                                    themeProvider.isDark ? Icons.dark_mode_rounded : Icons.light_mode_rounded,
+                                    color: AppColors.primary,
+                                    size: 18,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        themeProvider.isDark ? 'Mode Gelap' : 'Mode Cerah',
+                                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+                                      ),
+                                      const Text('Tap untuk ganti tema',
+                                          style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                                    ],
+                                  ),
+                                ),
+                                Switch(
+                                  value: themeProvider.isDark,
+                                  onChanged: (_) => themeProvider.toggleTheme(),
+                                  activeColor: AppColors.primary,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 12),
+
+                      // Keluar
                       SizedBox(
                         width: double.infinity,
                         height: 48,
@@ -684,9 +579,9 @@ class _ProfilScreenState extends State<ProfilScreen> {
                             await FirebaseFirestore.instance
                                 .collection('users')
                                 .doc(_myUid)
-                                .set({'status': 'offline'},
-                                    SetOptions(merge: true)); // ✅ FIX
+                                .set({'status': 'offline'}, SetOptions(merge: true));
                             await _authService.logout();
+                            if (!mounted) return;
                             Navigator.pushReplacementNamed(context, '/login');
                           },
                           icon: const Icon(Icons.logout_rounded, size: 18),
@@ -694,8 +589,7 @@ class _ProfilScreenState extends State<ProfilScreen> {
                           style: OutlinedButton.styleFrom(
                             foregroundColor: AppColors.error,
                             side: const BorderSide(color: AppColors.error),
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12)),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                           ),
                         ),
                       ),
@@ -713,13 +607,10 @@ class _ProfilScreenState extends State<ProfilScreen> {
   Widget _statCol(String num, String label, Color color) {
     return Column(
       children: [
-        Text(num,
-            style: TextStyle(
-                fontSize: 20, fontWeight: FontWeight.w800, color: color)),
+        Text(num, style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: color)),
         const SizedBox(height: 2),
-        Text(label,
-            style: const TextStyle(
-                fontSize: 12, color: AppColors.textSecondary)),
+        const Text('', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+        Text(label, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
       ],
     );
   }
