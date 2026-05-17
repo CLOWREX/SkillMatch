@@ -2,28 +2,29 @@ import 'package:flutter/material.dart';
 
 // ── DARK COLORS ──────────────────────────────────────────
 class DarkColors {
-  static const background     = Color(0xFF0F0F13);
-  static const surface        = Color(0xFF16161E);
-  static const card           = Color(0xFF1E1E2A);
-  static const border         = Color(0xFF252535);
-  static const textPrimary    = Color(0xFFE2E8F0);
-  static const textSecondary  = Color(0xFF9CA3AF);
-  static const textHint       = Color(0xFF4B5563);
+  static const background    = Color(0xFF0F0F13);
+  static const surface       = Color(0xFF16161E);
+  static const card          = Color(0xFF1E1E2A);
+  static const border        = Color(0xFF252535);
+  static const textPrimary   = Color(0xFFE2E8F0);
+  static const textSecondary = Color(0xFF9CA3AF);
+  static const textHint      = Color(0xFF4B5563);
 }
 
 // ── LIGHT COLORS ─────────────────────────────────────────
 class LightColors {
-  static const background     = Color(0xFFF5F5F7);
-  static const surface        = Color(0xFFFFFFFF);
-  static const card           = Color(0xFFF0F0F5);
-  static const border         = Color(0xFFE2E2EA);
-  static const textPrimary    = Color(0xFF111827);
-  static const textSecondary  = Color(0xFF6B7280);
-  static const textHint       = Color(0xFF9CA3AF);
+  static const background    = Color(0xFFF5F5F7);
+  static const surface       = Color(0xFFFFFFFF);
+  static const card          = Color(0xFFF0F0F5);
+  static const border        = Color(0xFFE2E2EA);
+  static const textPrimary   = Color(0xFF111827);
+  static const textSecondary = Color(0xFF6B7280);
+  static const textHint      = Color(0xFF9CA3AF);
 }
 
-// ── SHARED COLORS (sama di dark & light) ─────────────────
+// ── APP COLORS ────────────────────────────────────────────
 class AppColors {
+  // Warna tetap (sama di dark & light)
   static const primary        = Color(0xFFA78BFA);
   static const secondary      = Color(0xFF22D3EE);
   static const success        = Color(0xFF34D399);
@@ -42,41 +43,30 @@ class AppColors {
     end: Alignment.bottomRight,
   );
 
-  // ── Dynamic colors (berubah sesuai mode) ─────────────
-  static Color background(BuildContext context) =>
-      Theme.of(context).brightness == Brightness.dark
-          ? DarkColors.background
-          : LightColors.background;
+  // ── Static const alias (default dark) ──────────────────
+  // Untuk backward-compat di widget yang pakai AppColors.background, dll.
+  // Widget yang mau ikut tema: gunakan context.bg, context.cardColor, dst.
+  static const background    = DarkColors.background;
+  static const surface       = DarkColors.surface;
+  static const card          = DarkColors.card;
+  static const border        = DarkColors.border;
+  static const textPrimary   = DarkColors.textPrimary;
+  static const textSecondary = DarkColors.textSecondary;
+  static const textHint      = DarkColors.textHint;
+}
 
-  static Color surface(BuildContext context) =>
-      Theme.of(context).brightness == Brightness.dark
-          ? DarkColors.surface
-          : LightColors.surface;
+// ── EXTENSION: Warna dinamis lewat BuildContext ───────────
+// Pakai: context.bg | context.cardColor | context.textPrimary | dst.
+extension AppTheme on BuildContext {
+  bool get isDark => Theme.of(this).brightness == Brightness.dark;
 
-  static Color card(BuildContext context) =>
-      Theme.of(context).brightness == Brightness.dark
-          ? DarkColors.card
-          : LightColors.card;
-
-  static Color border(BuildContext context) =>
-      Theme.of(context).brightness == Brightness.dark
-          ? DarkColors.border
-          : LightColors.border;
-
-  static Color textPrimary(BuildContext context) =>
-      Theme.of(context).brightness == Brightness.dark
-          ? DarkColors.textPrimary
-          : LightColors.textPrimary;
-
-  static Color textSecondary(BuildContext context) =>
-      Theme.of(context).brightness == Brightness.dark
-          ? DarkColors.textSecondary
-          : LightColors.textSecondary;
-
-  static Color textHint(BuildContext context) =>
-      Theme.of(context).brightness == Brightness.dark
-          ? DarkColors.textHint
-          : LightColors.textHint;
+  Color get bg             => isDark ? DarkColors.background    : LightColors.background;
+  Color get surfaceColor   => isDark ? DarkColors.surface       : LightColors.surface;
+  Color get cardColor      => isDark ? DarkColors.card          : LightColors.card;
+  Color get borderColor    => isDark ? DarkColors.border        : LightColors.border;
+  Color get textPrimary    => isDark ? DarkColors.textPrimary   : LightColors.textPrimary;
+  Color get textSecondary  => isDark ? DarkColors.textSecondary : LightColors.textSecondary;
+  Color get textHint       => isDark ? DarkColors.textHint      : LightColors.textHint;
 }
 
 // ── DARK THEME ────────────────────────────────────────────
@@ -84,7 +74,7 @@ ThemeData darkTheme() {
   return ThemeData(
     brightness: Brightness.dark,
     scaffoldBackgroundColor: DarkColors.background,
-    colorScheme: ColorScheme.dark(
+    colorScheme: const ColorScheme.dark(
       primary: AppColors.primary,
       secondary: AppColors.secondary,
       surface: DarkColors.surface,
@@ -159,7 +149,7 @@ ThemeData lightTheme() {
   return ThemeData(
     brightness: Brightness.light,
     scaffoldBackgroundColor: LightColors.background,
-    colorScheme: ColorScheme.light(
+    colorScheme: const ColorScheme.light(
       primary: AppColors.primary,
       secondary: AppColors.secondary,
       surface: LightColors.surface,
